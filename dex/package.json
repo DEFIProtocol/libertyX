@@ -4,17 +4,22 @@
   "private": true,
   "dependencies": {
     "@ant-design/icons": "^5.0.0",
+    "@reduxjs/toolkit": "^2.11.2",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "antd": "^5.1.5",
     "axios": "^1.2.3",
+    "dotenv": "^17.2.3",
     "ethers": "^5.7.2",
+    "html-react-parser": "^5.2.12",
+    "millify": "^6.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-redux": "^9.2.0",
     "react-router-dom": "^6.6.2",
     "react-scripts": "5.0.1",
-    "wagmi": "^0.10.11",
+    "wagmi": "^0.10.15",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

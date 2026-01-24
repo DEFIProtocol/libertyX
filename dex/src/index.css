@@ -1,3 +1,22 @@
+:root {
+  --bg: #1f1f1f; /* Main */
+  --surface: #181818; /* Secondary */
+  --muted: #98b244; /* TextSecondary / PopColor */
+  --text: #f9f9fb; /* Text */
+  --accent: #98b244; /* Pop/Emphasis */
+  --accent-contrast: #0a0a00;
+}
+
+/* Light theme overrides */
+.theme-light {
+  --bg: #ebebef;
+  --surface: #ffffff;
+  --muted: #6b6b6b;
+  --text: #081018;
+  --accent: #99c800;
+  --accent-contrast: #ffffff;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
@@ -5,16 +24,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  height: 100vh;
-  width: 100vw;
-  background-color: rgb(25, 33, 52) !important;
-  background: rgb(25, 33, 52);
-  background: linear-gradient(
-    180deg,
-    rgba(25, 33, 52, 1) 28%,
-    rgba(7, 8, 21, 1) 75%
-  );
-  color: white;
+  min-height: 100vh;
+  min-width: 100vw;
+  background: linear-gradient(180deg, var(--bg) 28%, var(--surface) 75%);
+  color: var(--text);
 }
 
 code {
@@ -23,8 +36,8 @@ code {
 }
 
 .ant-input {
-  background-color: #1f2639 !important;
-  color: white !important;
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
   border-width: 0px !important;
   height: 96px !important;
   margin-bottom: 5px;
@@ -51,8 +64,8 @@ code {
 .ant-popover-inner {
   min-width: 260px !important;
   min-height: 140px !important;
-  border: 1px solid #21273a;
-  background-color: #0e111b !important;
+  border: 1px solid var(--muted);
+  background-color: var(--surface) !important;
 }
 
 .ant-radio-group {
@@ -81,27 +94,28 @@ code {
   padding: 0px !important;
 }
 
+.ant-modal-content {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+  padding: 0px !important;
+}
 .ant-modal {
-  border: 1px solid #363e54;
+  border: 1px solid var(--muted);
   width: 400px !important;
   border-radius: 10px;
 }
-
 .ant-modal-header {
-  background-color: #0e111b !important;
+  background-color: var(--surface) !important;
 }
-
 .ant-modal-title {
-  color: white !important;
+  color: var(--text) !important;
   padding-top: 17px !important;
   margin-left: 20px !important;
 }
-
 .ant-modal-close-icon {
-  color: #363e54 !important;
+  color: var(--muted) !important;
   transition: 0.3s;
 }
-
 .ant-modal-close-icon:hover {
-  color: white !important;
+  color: var(--bg) !important;
 }

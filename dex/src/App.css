@@ -1,20 +1,38 @@
 .App {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
 }
 
 header {
-  height: 100px;
+  height: 64px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-left: 50px;
-  padding-right: 50px;
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  width: 100%;
+}
 .logo{
-  width: 40px;
-  height: 40px;
-  padding-right: 20px;
+  width: 32px;
+  height: 32px;
+  padding-right: 12px;
+}
+
+.logoGRL {
+  width: 28px;
+  height: 28px;
 }
 
 .eth{
@@ -27,63 +45,113 @@ header {
 .leftH {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
 }
 
 .rightH {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 20px;
+  gap: 12px;
 }
 
 .headerItem {
-  padding: 10px;
-  padding-left: 15px;
-  padding-right: 15px;
-  border-radius: 5px;
-  font-weight: 500;
-  transition: 0.3s;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: 0.18s;
   display: flex;
   align-items: center;
 }
 
 .headerItem:hover {
-  background-color: rgb(34, 42, 58);
+  background-color: #181818;
   cursor: pointer;
 }
 
 .connectButton {
-  background-color: #243056; 
+  background-color: var(--surface);
   padding: 10px;
   padding-right: 20px;
   padding-left: 20px;
   border-radius: 100px;
-  color: #5981F3;
+  color: var(--accent);
   font-weight: bold;
   transition: 0.3s;
 }
 
 .connectButton:hover {
   cursor: pointer;
-  color: #3b4874
+  color: color-mix(in srgb, var(--accent) 70%, var(--text) 30%);
 }
 
 .mainWindow {
+ .mainWindow {
   margin-top: 40px;
   display: flex;
   justify-content: center;
+  flex: 1; /* KEY: Makes it grow to fill space */
+  min-height: calc(100vh - 104px); /* Full height minus header */
+}
 }
 
 .link {
   text-decoration: none;
-  color: white;
+  color: var(--text);
 }
+.page-container {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.page-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.App > .mainWindow {
+  flex: 1;
+}
+.header-items-container2 {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: center;
+}
+
+/* Mobile nav overlay */
+.navOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+
+.navWindow {
+  width: 90%;
+  max-width: 360px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--muted);
+  padding: 14px;
+}
+
+.navHeader { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px }
+.navClose { cursor:pointer; padding:4px 8px; border-radius:8px }
+.navList { display:flex; flex-direction:column; gap:10px }
+.navItem { padding:12px; border-radius:10px; background:transparent; color:var(--text); font-weight:700 }
+.navItem:hover { background: rgba(255,255,255,0.02) }
 
 .tradeBox {
   width: 400px;
-  background-color: #0E111B;
-  border: 2px solid #21273a;
+  background-color: var(--surface);
+  border: 2px solid var(--muted);
   min-height: 300px;
   border-radius: 15px;
   display: flex;
@@ -103,7 +171,7 @@ header {
 }
 
 .cog {
-  color: #51586f;
+  color: var(--muted);
   transition: 0.3s;
 }
 
@@ -114,7 +182,7 @@ header {
 }
 
 .switchButton {
-  background-color: #3a4157;
+  background-color: var(--surface);
   width: 25px;
   height: 25px;
   align-items: center;
@@ -124,8 +192,8 @@ header {
   position: absolute;
   top: 86px;
   left: 180px;
-  color: #5F6783;
-  border: 3px solid #0E111B;
+  color: var(--muted);
+  border: 3px solid var(--surface);
   font-size: 12px;
   transition: 0.3s
 }
@@ -135,7 +203,7 @@ header {
   top: 75px;
   left: 14px;
   font-size: 10px;
-  color: #5F6783;
+  color: var(--muted);
 }
 
 .switchButton:hover {
@@ -151,7 +219,7 @@ header {
   position: absolute;
   min-width: 50px;
   height: 30px;
-  background-color: #3a4157;
+  background-color: var(--surface);
   top: 36px;
   right: 20px;
   border-radius: 100px;
@@ -168,7 +236,7 @@ header {
   position: absolute;
   min-width: 50px;
   height: 30px;
-  background-color: #3a4157;
+  background-color: var(--surface);
   top: 135px;
   right: 20px;
   border-radius: 100px;
@@ -198,12 +266,12 @@ header {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #243056; 
+  background-color: var(--surface);
   width: calc(100%);
   height: 55px;
   font-size: 20px;
   border-radius: 12px;
-  color: #5981F3;
+  color: var(--accent);
   font-weight: bold;
   transition: 0.3s;
   margin-bottom: 30px;
@@ -211,19 +279,19 @@ header {
 }
 
 .swapButton[disabled] {
-  background-color: #243056;
+  background-color: #f4f4f44f;
   opacity: 0.4;
-  color: #5982f39b;
+  color: #181818;
 }
 
 .swapButton[disabled]:hover {
   cursor: not-allowed;
-  background-color: #243056;
+  background-color: #f4f4f44f;
 }
 
 .swapButton:hover {
   cursor: pointer;
-  background-color: #3b4874
+  filter: brightness(1.05);
 }
 
 .tokenLogo {
@@ -232,7 +300,7 @@ header {
 }
 
 .modalContent {
-  border-top: 1px solid #363e54;
+  border-top: 1px solid var(--muted);
   /* padding-top: 20px; */
   margin-top: 20px;
   display: flex;
@@ -251,7 +319,7 @@ header {
 
 .tokenChoice:hover {
   cursor: pointer;
-  background-color: #1f2639;
+  background-color: rgba(255, 255, 255, 0.048);
 }
 
 .tokenName {
@@ -264,5 +332,121 @@ header {
   margin-left: 10px;
   font-size: 13px;
   font-weight: 300;
-  color: #51596f;
+  color: var(--muted);
+}
+
+/* Wallet modal styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+}
+
+.modalWindow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 320px;
+  max-width: 420px;
+  width: 90%;
+  background: linear-gradient(180deg, var(--surface) 0%, rgba(7,16,35,0.6) 100%);
+  border: 1px solid var(--muted);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+  color: var(--text);
+  padding: 18px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.closeButton {
+  background: transparent;
+  border: 1px solid var(--muted);
+  color: var(--text);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s;
+}
+.closeButton:hover { transform: scale(1.05); background: rgba(255,255,255,0.02); }
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+
+.walletOption {
+  background: var(--surface);
+  color: var(--text);
+  border: none;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  cursor: pointer;
+  text-align: left;
+  border-left: 4px solid var(--accent);
+}
+
+.walletOption:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.6), inset 0 -2px 8px rgba(0,0,0,0.22);
+}
+
+.walletOption:active { transform: translateY(-1px) scale(0.995); }
+
+.modalError { color: #ff8b8b; margin-top: 8px; font-size: 13px; }
+
+.themeToggle {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--muted);
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.themeToggle:hover { transform: translateY(-2px); }
+
+.chainSelect {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  appearance: none;
+}
+
+.chainSelect:focus { outline: none; }
+
+@media (max-width: 420px) {
+  header { padding-left: 12px; padding-right: 12px; }
+  .modalWindow { padding: 14px; border-radius: 12px; }
+  .walletOption { padding: 10px 12px; border-radius: 10px; }
+  .header-items-container2 { display: none }
 }

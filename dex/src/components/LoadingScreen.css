@@ -1,0 +1,131 @@
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%; /* This makes it fill parent */
+  /* ... rest of your styles ... */
+}
+
+/* Remove fixed heights from sizes */
+.loading-screen.small,
+.loading-screen.medium,
+.loading-screen.large {
+  height: 100%; /* All sizes fill container */
+}
+
+/* Logo parts */
+.logo-part {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 8px currentColor);
+  animation-duration: 2.5s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Positions */
+.part-1 { top: 30%; left: 30%; animation: orbit-1 2.5s infinite; }
+.part-2 { top: 30%; right: 30%; animation: orbit-2 2.5s infinite 0.3s; }
+.part-3 { bottom: 30%; left: 30%; animation: orbit-3 2.5s infinite 0.6s; }
+.part-4 { bottom: 30%; right: 30%; animation: orbit-4 2.5s infinite 0.9s; }
+.part-5 { 
+  width: 40px; 
+  height: 40px; 
+  animation: pulse 1.5s infinite;
+}
+
+/* Your theme colors */
+.part-1 { background: var(--accent); }
+.part-2 { background: var(--muted); }
+.part-3 { background: color-mix(in srgb, var(--accent) 70%, var(--text) 30%); }
+.part-4 { background: color-mix(in srgb, var(--muted) 70%, var(--accent) 30%); }
+.part-5 { 
+  background: var(--accent);
+  box-shadow: 0 0 20px var(--accent);
+}
+
+/* Animations */
+@keyframes orbit-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+  25% { transform: translate(60px, -60px) scale(1.3); opacity: 0.5; }
+  50% { transform: translate(120px, 0) scale(0.8); opacity: 0.2; }
+  75% { transform: translate(60px, 60px) scale(1.1); opacity: 0.7; }
+}
+
+@keyframes orbit-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+  25% { transform: translate(-60px, -60px) scale(1.3); opacity: 0.5; }
+  50% { transform: translate(-120px, 0) scale(0.8); opacity: 0.2; }
+  75% { transform: translate(-60px, 60px) scale(1.1); opacity: 0.7; }
+}
+
+@keyframes orbit-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+  25% { transform: translate(60px, 60px) scale(1.3); opacity: 0.5; }
+  50% { transform: translate(120px, 0) scale(0.8); opacity: 0.2; }
+  75% { transform: translate(60px, -60px) scale(1.1); opacity: 0.7; }
+}
+
+@keyframes orbit-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+  25% { transform: translate(-60px, 60px) scale(1.3); opacity: 0.5; }
+  50% { transform: translate(-120px, 0) scale(0.8); opacity: 0.2; }
+  75% { transform: translate(-60px, -60px) scale(1.1); opacity: 0.7; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+/* Loading text */
+.loading-text {
+  position: absolute;
+  bottom: 50px;
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 300;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.loading-text::after {
+  content: '';
+  animation: loadingDots 1.5s infinite;
+}
+
+@keyframes loadingDots {
+  0% { content: ''; }
+  33% { content: '.'; }
+  66% { content: '..'; }
+  100% { content: '...'; }
+}
+
+/* Size variations */
+.loading-screen.small {
+  height: 150px;
+}
+.loading-screen.small .logo-part {
+  width: 15px;
+  height: 15px;
+}
+.loading-screen.small .part-5 {
+  width: 30px;
+  height: 30px;
+}
+.loading-screen.small .loading-text {
+  font-size: 0.9rem;
+  bottom: 30px;
+}
+
+.loading-screen.medium {
+  height: 300px;
+}
+
+.loading-screen.large {
+  height: 400px;
+}
