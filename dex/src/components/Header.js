@@ -1,11 +1,10 @@
-import React, {useState, useEffect, useContext} from 'react';
+import React, {useState, useEffect} from 'react';
 import Eth from "../eth.svg";
 import {Link} from "react-router-dom";
 import { MenuOutlined } from '@ant-design/icons';
 import OutlinedLogo from "../OutlinedLogo.png"
 import WalletModal from './WalletModal';
-import ChainContext from '../contexts/ChainContext';
-
+import { useChainContext } from '../contexts/ChainContext'; // ✅ Correct import
 
 function Header(props) {
   const { address, disconnect, isConnect } = props;
@@ -14,7 +13,7 @@ function Header(props) {
   const [ isOpen, setIsOpen] = useState(false);
   const [screenSize, setScreenSize] = useState(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const { selected, setSelected, availableChains: available } = useContext(ChainContext);
+  const { selectedChain, setSelectedChain, availableChains } = useChainContext(); // ✅ Use custom hook
 
   useEffect(() => {
     const handleResize = () => setScreenSize(window.innerWidth);
@@ -61,7 +60,7 @@ function Header(props) {
           <img className="logoGRL" src={OutlinedLogo} alt="noLogo" />
           {/*
             <div className="grid">grid</div>
-          <div className="lock">Lock</div> */
+          <div className="lock">lock</div> */
           }
           </div>
         </Link>
@@ -104,11 +103,16 @@ function Header(props) {
         <div className="headerItem">
           <img src={Eth} alt="eth" className ="eth" />
           {!activeMenu ? "Eth" : (
-            <select className="chainSelect" value={(available.find(c => c.chain.id === selected.id) || {}).key || 'ethereum'} onChange={(e) => {
-              const found = available.find(c => c.key === e.target.value);
-              if (found) setSelected(found.chain);
-            }}>
-              {available.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+            <select 
+              className="chainSelect" 
+              value={selectedChain} 
+              onChange={(e) => setSelectedChain(e.target.value)}
+            >
+              {availableChains.map(chain => (
+                <option key={chain} value={chain}>
+                  {chain.charAt(0).toUpperCase() + chain.slice(1)}
+                </option>
+              ))}
             </select>
           )}
         </div>

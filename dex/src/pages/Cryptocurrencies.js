@@ -8,8 +8,6 @@ function Cryptocurrencies() {
       <Loader message="Loading LibertyX..." />
       {/* Your app content */}
     </div>
-  );
-}
     </div>
   )
 }

@@ -1,37 +1,53 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useConnect, useNetwork, useSwitchNetwork } from 'wagmi';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
 import { InjectedConnector } from 'wagmi/connectors/injected';
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
-import { mainnet, polygon, arbitrum, bsc, avalanche } from 'wagmi/chains';
-import ChainContext from '../contexts/ChainContext';
+import { useChainContext } from '../contexts/ChainContext';
 
 function WalletModal({ isOpen, onClose }) {
   const { connect, connectors, error, isLoading, pendingConnector } = useConnect();
   const { chain } = useNetwork();
   const { switchNetwork, error: switchError } = useSwitchNetwork();
 
-  const { selected, setSelected, availableChains } = useContext(ChainContext);
-  const [selectedLocal, setSelectedLocal] = useState(selected);
+  // ✅ Use the custom hook
+  const { selectedChain, setSelectedChain, availableChains } = useChainContext();
+  
+  const [selectedLocal, setSelectedLocal] = useState(selectedChain);
   const [solanaAddress, setSolanaAddress] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setSolanaAddress(null);
-    setSelectedLocal(selected);
-  }, [isOpen, selected]);
+    setSelectedLocal(selectedChain);
+  }, [isOpen, selectedChain]);
 
   if (!isOpen) return null;
 
   const connectEVM = async (connector) => {
     try {
-      await connect({ connector, chainId: selectedLocal.id });
-      if (switchNetwork && chain?.id !== selectedLocal.id) {
-        try { switchNetwork(selectedLocal.id); } catch (e) { }
+      // Since we're using string chain names, we need to convert to chain ID
+      // You might need to adjust this based on your chain data structure
+      const chainMap = {
+        'ethereum': 1,
+        'polygon': 137,
+        'arbitrum': 42161,
+        'bsc': 56,
+        'avalanche': 43114
+      };
+      
+      const chainId = chainMap[selectedLocal] || 1; // Default to Ethereum
+      
+      await connect({ connector, chainId });
+      
+      // Optionally switch network if needed
+      if (switchNetwork && chain?.id !== chainId) {
+        try { switchNetwork(chainId); } catch (e) { }
       }
-      // persist selection globally
-      try { setSelected(selectedLocal); } catch (e) { }
+      
+      // Update global chain selection
+      try { setSelectedChain(selectedLocal); } catch (e) { }
       onClose();
     } catch (e) {
       console.error('connectEVM error', e);
@@ -39,19 +55,19 @@ function WalletModal({ isOpen, onClose }) {
   }
 
   const handleMetaMask = async () => {
-    connectEVM(new MetaMaskConnector({ chains: [selectedLocal] }));
+    connectEVM(new MetaMaskConnector());
   }
 
   const handleInjected = async () => {
-    connectEVM(new InjectedConnector({ chains: [selectedLocal] }));
+    connectEVM(new InjectedConnector());
   }
 
   const handleCoinbase = async () => {
-    connectEVM(new CoinbaseWalletConnector({ options: { appName: 'DexStarter' }, chains: [selectedLocal] }));
+    connectEVM(new CoinbaseWalletConnector({ options: { appName: 'DexStarter' } }));
   }
 
   const handleWalletConnect = async () => {
-    connectEVM(new WalletConnectConnector({ options: { qrcode: true }, chains: [selectedLocal] }));
+    connectEVM(new WalletConnectConnector({ options: { qrcode: true } }));
   }
 
   const handleSolana = async () => {
@@ -81,9 +97,18 @@ function WalletModal({ isOpen, onClose }) {
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>Select chain</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {availableChains.map(c => (
-              <button key={c.key} onClick={() => setSelectedLocal(c.chain)} className="walletOption" style={{ padding: '8px 10px', borderRadius: 10, borderLeft: selectedLocal.id === c.chain.id ? '4px solid var(--accent)' : '4px solid transparent' }}>
-                {c.label}
+            {availableChains.map(chain => (
+              <button 
+                key={chain} 
+                onClick={() => setSelectedLocal(chain)} 
+                className="walletOption" 
+                style={{ 
+                  padding: '8px 10px', 
+                  borderRadius: 10, 
+                  borderLeft: selectedLocal === chain ? '4px solid var(--accent)' : '4px solid transparent' 
+                }}
+              >
+                {chain.charAt(0).toUpperCase() + chain.slice(1)}
               </button>
             ))}
           </div>

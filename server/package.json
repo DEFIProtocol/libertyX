@@ -1,5 +1,5 @@
 {
-  "name": "dexback",
+  "name": "postgres",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -13,6 +13,6 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "moralis": "^2.11.1"
+    "pg": "^8.17.2"
   }
 }

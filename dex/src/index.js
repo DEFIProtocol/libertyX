@@ -6,8 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { configureChains, WagmiConfig, createClient } from "wagmi";
 import { mainnet, polygon, arbitrum, bsc, avalanche } from 'wagmi/chains';
 import { publicProvider } from "wagmi/providers/public";
-{/* import { Provider } from "react-redux";
-import store from './components/app/store';*/}
+import { AppProvider } from "./contexts/AppProvider"; // Single import!
 
 const { provider, webSocketProvider } = configureChains(
   [mainnet, polygon, arbitrum, bsc, avalanche],
@@ -25,9 +24,9 @@ root.render(
   <React.StrictMode>
     <WagmiConfig client={client}>
       <BrowserRouter>
-       {/*<Provider store={store}>*/}
+        <AppProvider>  
           <App />
-        {/*</Provider>*/}
+        </AppProvider>
       </BrowserRouter>
     </WagmiConfig>
   </React.StrictMode>
