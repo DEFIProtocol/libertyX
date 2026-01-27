@@ -1,179 +1,263 @@
-// server/routes/rapidapi.js - SIMPLE & WORKING
 const express = require('express');
-const router = express.Router();
 const axios = require('axios');
 
-// Configuration - USE YOUR ACTUAL VALUES
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '749cb16441msh27276ffc2efb167p15090ajsn8cf28aa64aae';
-const RAPIDAPI_HOST = 'coinranking1.p.rapidapi.com';
+const router = express.Router();
 
-const headers = {
-    'x-rapidapi-host': RAPIDAPI_HOST,
-    'x-rapidapi-key': RAPIDAPI_KEY
-};
+// RapidAPI CoinRanking configuration
+const RAPID_API_HOST = process.env.RAPID_API_HOST || 'coinranking1.p.rapidapi.com';
+const RAPID_API_KEY = process.env.RAPID_API_KEY;
 
-// Cache for performance
-let allCoinsCache = [];
-let cacheTime = 0;
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+// Server-side cache for RapidAPI responses
+const rapidApiCache = new Map();
+const RAPID_CACHE_TTL = 30 * 1000; // 30 seconds
 
-// Helper: Get ALL coins (cached)
-async function getAllCoins() {
-    const now = Date.now();
-    
-    if (allCoinsCache.length > 0 && (now - cacheTime) < CACHE_TTL) {
-        return allCoinsCache;
-    }
-    
+// Helper function with caching
+const createRequest = async (endpoint, params = {}) => {
     try {
-        console.log('🔄 Fetching ALL coins from RapidAPI...');
+        const cacheKey = `${endpoint}:${JSON.stringify(params)}`;
+        const cached = rapidApiCache.get(cacheKey);
         
-        const response = await axios.get(`https://${RAPIDAPI_HOST}/coins`, {
-            params: { limit: 2000 },
-            headers
-        });
-        
-        allCoinsCache = response.data?.data?.coins || [];
-        cacheTime = now;
-        
-        console.log(`✅ Loaded ${allCoinsCache.length} coins`);
-        return allCoinsCache;
-    } catch (error) {
-        console.error('❌ Failed to fetch coins:', error.message);
-        throw error;
-    }
-}
-
-// ========== SIMPLE ENDPOINTS ==========
-
-// 1. Health check
-router.get('/health', async (req, res) => {
-    try {
-        const response = await axios.get(`https://${RAPIDAPI_HOST}/coins?limit=1`, { headers });
-        
-        res.json({
-            status: 'online',
-            totalCoins: response.data?.data?.stats?.total || 0
-        });
-    } catch (error) {
-        res.json({
-            status: 'error',
-            error: error.message
-        });
-    }
-});
-
-// 2. Get ALL coins (for frontend)
-router.get('/coins', async (req, res) => {
-    try {
-        const { limit = '100' } = req.query;
-        
-        const response = await axios.get(`https://${RAPIDAPI_HOST}/coins`, {
-            params: { limit },
-            headers
-        });
-        
-        // Return EXACT format your frontend expects
-        res.json(response.data);
-        
-    } catch (error) {
-        console.error('Coins error:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 3. Get batch prices (for your admin panel)
-router.post('/prices/batch', async (req, res) => {
-    try {
-        const { symbols } = req.body;
-        
-        if (!symbols || !Array.isArray(symbols)) {
-            return res.status(400).json({ error: 'Symbols array required' });
+        // Return cached response if available and not expired
+        if (cached && Date.now() - cached.timestamp < RAPID_CACHE_TTL) {
+            console.log(`RapidAPI Cache hit: ${endpoint}`);
+            return cached.data;
         }
         
-        console.log(`📦 Getting prices for ${symbols.length} symbols`);
+        console.log(`RapidAPI Call: ${endpoint}`);
         
-        const allCoins = await getAllCoins();
-        const prices = {};
-        const missing = [];
+        const response = await axios.get(`https://${RAPID_API_HOST}${endpoint}`, {
+            headers: {
+                'x-rapidapi-host': RAPID_API_HOST,
+                'x-rapidapi-key': RAPID_API_KEY,
+                'Accept': 'application/json'
+            },
+            params,
+            timeout: 10000 // 10 second timeout
+        });
         
-        symbols.forEach(symbol => {
-            const upperSymbol = symbol.toUpperCase();
-            const coin = allCoins.find(c => c.symbol.toUpperCase() === upperSymbol);
-            
-            if (coin && coin.price) {
-                prices[upperSymbol] = {
-                    price: parseFloat(coin.price),
-                    uuid: coin.uuid,
-                    name: coin.name,
-                    marketCap: coin.marketCap,
-                    volume24h: coin['24hVolume'],
-                    rank: coin.rank
-                };
-            } else {
-                missing.push(upperSymbol);
+        // Cache the successful response
+        if (response.data && response.data.status === 'success') {
+            rapidApiCache.set(cacheKey, {
+                data: response.data,
+                timestamp: Date.now()
+            });
+        }
+        
+        return response.data;
+    } catch (error) {
+        console.error('RapidAPI Error:', {
+            endpoint,
+            params,
+            error: error.response?.data || error.message,
+            status: error.response?.status
+        });
+        
+        // Check for rate limiting from RapidAPI
+        if (error.response?.status === 429) {
+            throw new Error('RapidAPI rate limit exceeded. Please try again in a moment.');
+        }
+        
+        throw error;
+    }
+};
+
+// Batch request helper to minimize API calls
+const batchRequest = async (requests) => {
+    try {
+        // Use Promise.allSettled to handle partial failures
+        const results = await Promise.allSettled(
+            requests.map(async (req) => {
+                try {
+                    const data = await createRequest(req.endpoint, req.params);
+                    return { coinId: req.coinId, data };
+                } catch (error) {
+                    return { coinId: req.coinId, error: error.message };
+                }
+            })
+        );
+        
+        // Convert to object with coinId as key
+        const batchResult = {};
+        results.forEach(result => {
+            if (result.status === 'fulfilled' && result.value.coinId) {
+                batchResult[result.value.coinId] = result.value.data || result.value.error;
             }
         });
         
+        return batchResult;
+    } catch (error) {
+        console.error('Batch request error:', error);
+        throw error;
+    }
+};
+
+// 1. Get all coins with limit
+router.get('/coins', async (req, res) => {
+    try {
+        const { limit = 1200, offset = 0 } = req.query;
+        
+        const data = await createRequest('/coins', { 
+            limit: Math.min(limit, 1500), // Cap at 1500
+            offset,
+            referenceCurrencyUuid: 'yhjMzLPhuIDl' // USD
+        });
+        
         res.json({
             success: true,
-            prices,
-            stats: {
-                requested: symbols.length,
-                found: Object.keys(prices).length,
-                missing: missing.length
+            data: data.data,
+            stats: data.data?.stats,
+            timestamp: new Date().toISOString(),
+            cache: rapidApiCache.size,
+            source: 'rapidapi'
+        });
+    } catch (error) {
+        console.error('Error fetching coins:', error);
+        res.status(error.response?.status || 500).json({
+            success: false,
+            error: error.message || 'Failed to fetch coins',
+            details: error.response?.data
+        });
+    }
+});
+
+// 2. Get specific coin details
+router.get('/coin/:coinId', async (req, res) => {
+    try {
+        const { coinId } = req.params;
+        const { referenceCurrencyUuid = 'yhjMzLPhuIDl', timePeriod = '24h' } = req.query;
+        
+        if (!coinId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Coin ID is required'
+            });
+        }
+        
+        const data = await createRequest(`/coin/${coinId}`, {
+            referenceCurrencyUuid,
+            timePeriod
+        });
+        
+        res.json({
+            success: true,
+            data: data.data,
+            timestamp: new Date().toISOString(),
+            source: 'rapidapi'
+        });
+    } catch (error) {
+        console.error('Error fetching coin details:', error);
+        res.status(error.response?.status || 500).json({
+            success: false,
+            error: error.message || 'Failed to fetch coin details',
+            details: error.response?.data
+        });
+    }
+});
+
+// 3. Get coin history
+router.get('/coin/:coinId/history', async (req, res) => {
+    try {
+        const { coinId } = req.params;
+        const { timePeriod = '24h' } = req.query;
+        
+        if (!coinId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Coin ID is required'
+            });
+        }
+        
+        const data = await createRequest(`/coin/${coinId}/history`, { timePeriod });
+        
+        res.json({
+            success: true,
+            data: data.data,
+            timestamp: new Date().toISOString(),
+            metadata: {
+                coinId,
+                timePeriod,
+                change: data.data?.change,
+                historyCount: data.data?.history?.length || 0
             },
-            missingSymbols: missing
+            source: 'rapidapi'
         });
-        
     } catch (error) {
-        console.error('Batch prices error:', error.message);
-        res.status(500).json({ error: error.message });
+        console.error('Error fetching coin history:', error);
+        res.status(error.response?.status || 500).json({
+            success: false,
+            error: error.message || 'Failed to fetch coin history',
+            details: error.response?.data
+        });
     }
 });
 
-// 4. Get single coin
-router.get('/coin/:uuid', async (req, res) => {
+// NEW: Batch endpoint for multiple coins
+router.post('/batch/coins', async (req, res) => {
     try {
-        const { uuid } = req.params;
+        const { coinIds = [] } = req.body;
         
-        const response = await axios.get(`https://${RAPIDAPI_HOST}/coin/${uuid}`, { headers });
+        if (!Array.isArray(coinIds) || coinIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'coinIds array is required'
+            });
+        }
         
-        res.json(response.data);
+        // Limit batch size to prevent abuse
+        const limitedIds = coinIds.slice(0, 100);
         
-    } catch (error) {
-        console.error('Coin error:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 5. Search coins by symbol/name
-router.get('/search/:query', async (req, res) => {
-    try {
-        const { query } = req.params;
-        const allCoins = await getAllCoins();
+        const requests = limitedIds.map(coinId => ({
+            coinId,
+            endpoint: `/coin/${coinId}`,
+            params: { referenceCurrencyUuid: 'yhjMzLPhuIDl' }
+        }));
         
-        const results = allCoins.filter(coin => 
-            coin.symbol.toLowerCase().includes(query.toLowerCase()) ||
-            coin.name.toLowerCase().includes(query.toLowerCase())
-        ).slice(0, 20);
+        const batchResult = await batchRequest(requests);
         
         res.json({
             success: true,
-            query,
-            results: results.map(coin => ({
-                uuid: coin.uuid,
-                symbol: coin.symbol,
-                name: coin.name,
-                price: coin.price,
-                rank: coin.rank
-            }))
+            data: batchResult,
+            timestamp: new Date().toISOString(),
+            total: limitedIds.length,
+            received: Object.keys(batchResult).length,
+            source: 'rapidapi-batch'
         });
-        
     } catch (error) {
-        console.error('Search error:', error.message);
-        res.status(500).json({ error: error.message });
+        console.error('Error in batch request:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to fetch batch data'
+        });
     }
+});
+
+// NEW: Stats endpoint to check rate limit status
+router.get('/stats', (req, res) => {
+    res.json({
+        success: true,
+        stats: {
+            cacheSize: rapidApiCache.size,
+            cacheTTL: RAPID_CACHE_TTL,
+            endpoints: {
+                coins: '/coins?limit=:limit',
+                coin: '/coin/:coinId',
+                history: '/coin/:coinId/history?timePeriod=:period',
+                batch: 'POST /batch/coins'
+            }
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Clean cache endpoint (admin only)
+router.delete('/cache', (req, res) => {
+    const size = rapidApiCache.size;
+    rapidApiCache.clear();
+    res.json({
+        success: true,
+        message: `Cleared ${size} cached items`,
+        timestamp: new Date().toISOString()
+    });
 });
 
 module.exports = router;

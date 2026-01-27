@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
-const axios = require('axios'); // Add this - needed by exchange routes
+const { rapidApiLimiter, cacheMiddleware } = require('./middleware/ratelimiter');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,18 +37,16 @@ app.use(express.json());
 // Import routes
 const tokensRoutes = require('./routes/tokens')(pool);
 
-// API Routes - ORDER MATTERS!
+// API Routes
 app.use('/api/tokens', tokensRoutes);
 
-// Import exchange routes - FIXED to pass dependencies
+// Import exchange routes
 const createPricingRoutes = require('./routes/pricing');
-const binanceRoutes = require('./routes/binance');
-const coinbaseRoutes = require('./routes/coinbase');
-
-// Add exchange routes
 app.use('/api/pricing', createPricingRoutes);
-app.use('/api/binance', binanceRoutes);
-app.use('/api/coinbase', coinbaseRoutes);
+
+// Add RapidAPI routes with rate limiting and caching
+const rapidapiRoutes = require('./routes/rapidapi');
+app.use('/api/rapidapi', cacheMiddleware, rapidApiLimiter, rapidapiRoutes);
 
 // Simple test route
 app.get('/api/health', (req, res) => {
@@ -57,7 +55,8 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         services: {
             database: 'connected',
-            api: 'running'
+            api: 'running',
+            rapidapi: process.env.RAPID_API_KEY ? 'configured' : 'not configured'
         }
     });
 });
@@ -65,7 +64,11 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ error: 'Something went wrong!' });
+    res.status(500).json({ 
+        success: false,
+        error: 'Something went wrong!',
+        message: err.message 
+    });
 });
 
 app.listen(PORT, () => {
@@ -73,6 +76,8 @@ app.listen(PORT, () => {
     console.log('Available endpoints:');
     console.log(`  http://localhost:${PORT}/api/tokens`);
     console.log(`  http://localhost:${PORT}/api/pricing`);
-    console.log(`  http://localhost:${PORT}/api/binance`);
-    console.log(`  http://localhost:${PORT}/api/coinbase`);
+    console.log(`  http://localhost:${PORT}/api/rapidapi/coins`);
+    console.log(`  http://localhost:${PORT}/api/rapidapi/coin/:coinId`);
+    console.log(`  http://localhost:${PORT}/api/rapidapi/coin/:coinId/history`);
+    console.log(`  http://localhost:${PORT}/api/rapidapi/stats`);
 });
