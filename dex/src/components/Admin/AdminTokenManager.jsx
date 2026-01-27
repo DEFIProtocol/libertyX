@@ -1,363 +1,306 @@
+// AdminTokenManager.jsx - UPDATED for comparison
 import { useState } from 'react';
-import { useTokens } from '../../contexts/TokenContext'; 
+import { useTokens } from '../../contexts/TokenContext';
 import './AdminTokenManager.css';
 
 function AdminTokenManager() {
-  const { tokens, loading } = useTokens();
-  const [selectedTokens, setSelectedTokens] = useState([]);
-  const [viewMode, setViewMode] = useState('all'); // 'all', 'duplicates', 'byChain'
-  const [editingToken, setEditingToken] = useState(null);
-
-  // Get tokens grouped by symbol for comparison
-  const getTokensBySymbol = () => {
-    const groups = {};
-    tokens.forEach(token => {
-      if (!groups[token.symbol]) {
-        groups[token.symbol] = [];
-      }
-      groups[token.symbol].push(token);
-    });
-    return groups;
-  };
-
-  // Get duplicate symbols (where same symbol appears multiple times)
-  const getDuplicateSymbols = () => {
-    const groups = getTokensBySymbol();
-    return Object.entries(groups)
-      .filter(([symbol, tokenList]) => tokenList.length > 1)
-      .map(([symbol, tokenList]) => ({ symbol, tokens: tokenList }));
-  };
-
-  // Filter tokens based on view mode
-  const getFilteredTokens = () => {
-    switch(viewMode) {
-      case 'duplicates':
-        return getDuplicateSymbols().flatMap(group => group.tokens);
-      case 'byChain':
-        // Group by chain - we'll implement this in the table
-        return tokens;
-      default:
-        return tokens;
-    }
-  };
-
-  // Toggle token selection for comparison
-  const toggleTokenSelection = (token) => {
-    setSelectedTokens(prev => {
-      const exists = prev.some(t => t.id === token.id);
-      if (exists) {
-        return prev.filter(t => t.id !== token.id);
-      } else {
-        return [...prev, token];
-      }
-    });
-  };
-
-  // Start editing a token
-  const startEditing = (token) => {
-    setEditingToken({ ...token });
-  };
-
-  // Save edited token
-  const saveEdit = async () => {
-    if (!editingToken) return;
+    const { 
+        displayTokens, 
+        comparisonMode, 
+        toggleComparisonMode,
+        loadingAll,
+        loadingDb,
+        loadingJson,
+        errorDb,
+        errorJson,
+        comparisonStats,
+        dbCount,
+        jsonCount
+    } = useTokens();
     
-    // Call your backend API to update
-    try {
-      const response = await fetch(`http://localhost:3001/api/admin/tokens/${editingToken.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        },
-        body: JSON.stringify(editingToken)
-      });
-      
-      if (response.ok) {
-        setEditingToken(null);
-        // TokenContext will refresh on next fetch
-      }
-    } catch (error) {
-      console.error('Failed to update token:', error);
-    }
-  };
+    const [selectedTokens, setSelectedTokens] = useState([]);
+    const [viewMode, setViewMode] = useState('all'); // 'all', 'duplicates', 'diff', 'onlyDb', 'onlyJson'
+    const [editingToken, setEditingToken] = useState(null);
 
-  // Delete token
-  const deleteToken = async (tokenId, tokenSymbol) => {
-    if (!window.confirm(`Are you sure you want to delete ${tokenSymbol}?`)) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`http://localhost:3001/api/admin/tokens/${tokenId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+    // Filter tokens based on view mode (for comparison)
+    const getFilteredTokens = () => {
+        if (!comparisonMode) return displayTokens;
+        
+        switch(viewMode) {
+            case 'onlyDb':
+                return displayTokens.filter(item => item.inDatabase && !item.inJson);
+            case 'onlyJson':
+                return displayTokens.filter(item => !item.inDatabase && item.inJson);
+            case 'diff':
+                return displayTokens.filter(item => item.inDatabase && item.inJson && !item.match);
+            case 'both':
+                return displayTokens.filter(item => item.inDatabase && item.inJson);
+            default:
+                return displayTokens;
         }
-      });
-      
-      if (response.ok) {
-        // TokenContext will refresh on next fetch
-        setSelectedTokens(prev => prev.filter(t => t.id !== tokenId));
-      }
-    } catch (error) {
-      console.error('Failed to delete token:', error);
+    };
+
+    // Toggle token selection
+    const toggleTokenSelection = (token) => {
+        setSelectedTokens(prev => {
+            const exists = prev.some(t => t.symbol === token.symbol);
+            if (exists) {
+                return prev.filter(t => t.symbol !== token.symbol);
+            } else {
+                return [...prev, token];
+            }
+        });
+    };
+
+    if (loadingAll) {
+        return <div className="loading">Loading token data...</div>;
     }
-  };
 
-  if (loading) {
-    return <div className="loading">Loading tokens...</div>;
-  }
-
-  return (
-    <div className="admin-token-manager">
-      {/* Header with controls */}
-      <div className="manager-header">
-        <h2>Token Management</h2>
-        <div className="controls">
-          <select 
-            value={viewMode} 
-            onChange={(e) => setViewMode(e.target.value)}
-            className="view-select"
-          >
-            <option value="all">All Tokens</option>
-            <option value="duplicates">Duplicate Symbols</option>
-            <option value="byChain">Group by Chain</option>
-          </select>
-          
-          <div className="selection-info">
-            {selectedTokens.length} token(s) selected for comparison
-          </div>
-        </div>
-      </div>
-
-      {/* Split view: Comparison Panel on left, Main Table on right */}
-      <div className="split-view">
-        {/* Left: Comparison Panel */}
-        <div className="comparison-panel">
-          <h3>Comparison Panel</h3>
-          {selectedTokens.length === 0 ? (
-            <div className="empty-comparison">
-              Select tokens from the table to compare them side-by-side
-            </div>
-          ) : (
-            <div className="comparison-grid">
-              <table className="comparison-table">
-                <thead>
-                  <tr>
-                    <th>Property</th>
-                    {selectedTokens.map(token => (
-                      <th key={token.id}>{token.symbol}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Symbol</td>
-                    {selectedTokens.map(token => (
-                      <td key={token.id}>{token.symbol}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td>Name</td>
-                    {selectedTokens.map(token => (
-                      <td key={token.id}>{token.name}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td>Decimals</td>
-                    {selectedTokens.map(token => (
-                      <td key={token.id}>{token.decimals}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td>Chains</td>
-                    {selectedTokens.map(token => (
-                      <td key={token.id}>
-                        {token.addresses ? Object.keys(token.addresses).join(', ') : 'None'}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Main Token Table */}
-        <div className="main-table-panel">
-          <TokenTable 
-            tokens={getFilteredTokens()}
-            selectedTokens={selectedTokens}
-            onSelectToken={toggleTokenSelection}
-            onEditToken={startEditing}
-            onDeleteToken={deleteToken}
-            viewMode={viewMode}
-            getDuplicateSymbols={getDuplicateSymbols}
-          />
-        </div>
-      </div>
-
-      {/* Edit Modal (when editingToken is set) */}
-      {editingToken && (
-        <EditTokenModal
-          token={editingToken}
-          onSave={saveEdit}
-          onCancel={() => setEditingToken(null)}
-          onChange={(updates) => setEditingToken({ ...editingToken, ...updates })}
-        />
-      )}
-    </div>
-  );
-}
-
-// Sub-component: Token Table
-function TokenTable({ tokens, selectedTokens, onSelectToken, onEditToken, onDeleteToken, viewMode, getDuplicateSymbols }) {
-  // If viewing duplicates, show grouped
-  if (viewMode === 'duplicates') {
-    const duplicateGroups = getDuplicateSymbols();
-    
     return (
-      <div className="duplicate-groups">
-        {duplicateGroups.map(group => (
-          <div key={group.symbol} className="duplicate-group">
-            <h4 className="group-header">{group.symbol} ({group.tokens.length} instances)</h4>
-            <table className="token-table">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Chains</th>
-                  <th>Source</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.tokens.map(token => (
-                  <TokenRow
-                    key={token.id}
-                    token={token}
-                    isSelected={selectedTokens.some(t => t.id === token.id)}
-                    onSelect={() => onSelectToken(token)}
-                    onEdit={() => onEditToken(token)}
-                    onDelete={() => onDeleteToken(token.id, token.symbol)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
-      </div>
+        <div className="admin-token-manager">
+            {/* Header with comparison controls */}
+            <div className="manager-header">
+                <div className="header-left">
+                    <h2>Token Management</h2>
+                    <div className="data-source-info">
+                        <span className={`db-count ${errorDb ? 'error' : ''}`}>
+                            🛢️ DB: {loadingDb ? '...' : errorDb ? '❌' : dbCount}
+                        </span>
+                        <span className={`json-count ${errorJson ? 'error' : ''}`}>
+                            📄 JSON: {loadingJson ? '...' : errorJson ? '❌' : jsonCount}
+                        </span>
+                    </div>
+                </div>
+                
+                <div className="header-right">
+                    <button 
+                        onClick={toggleComparisonMode} 
+                        className={`comparison-toggle ${comparisonMode ? 'active' : ''}`}
+                    >
+                        {comparisonMode ? '🔍 Hide Comparison' : '🔍 Compare DB vs JSON'}
+                    </button>
+                    
+                    {comparisonMode && (
+                        <div className="comparison-stats">
+                            <span className="stat-item">Both: {comparisonStats.inBoth}</span>
+                            <span className="stat-item">Only DB: {comparisonStats.onlyInDb}</span>
+                            <span className="stat-item">Only JSON: {comparisonStats.onlyInJson}</span>
+                            <span className="stat-item">Diff: {comparisonStats.different}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Comparison controls (only shown in comparison mode) */}
+            {comparisonMode && (
+                <div className="comparison-controls">
+                    <div className="view-filter">
+                        <span className="filter-label">Show:</span>
+                        <select 
+                            value={viewMode} 
+                            onChange={(e) => setViewMode(e.target.value)}
+                            className="filter-select"
+                        >
+                            <option value="all">All Tokens</option>
+                            <option value="both">In Both Sources</option>
+                            <option value="onlyDb">Only in Database</option>
+                            <option value="onlyJson">Only in JSON</option>
+                            <option value="diff">Different Values</option>
+                        </select>
+                    </div>
+                    
+                    <div className="selection-info">
+                        {selectedTokens.length} token(s) selected
+                    </div>
+                </div>
+            )}
+
+            {/* Main table - changes based on comparison mode */}
+            <div className="table-container">
+                {comparisonMode ? (
+                    <ComparisonTable 
+                        tokens={getFilteredTokens()}
+                        selectedTokens={selectedTokens}
+                        onSelectToken={toggleTokenSelection}
+                        viewMode={viewMode}
+                    />
+                ) : (
+                    <NormalTable 
+                        tokens={displayTokens}
+                        selectedTokens={selectedTokens}
+                        onSelectToken={toggleTokenSelection}
+                    />
+                )}
+            </div>
+        </div>
     );
-  }
+}
 
-  // Normal table view
-  return (
-    <table className="token-table">
-      <thead>
-        <tr>
-          <th></th>
-          <th>Symbol</th>
-          <th>Name</th>
-          <th>Decimals</th>
-          <th>Chains</th>
-          <th>Actions</th>
+// Normal Table Component (when not comparing)
+function NormalTable({ tokens, selectedTokens, onSelectToken }) {
+    return (
+        <table className="token-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Symbol</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Market Cap</th>
+                    <th>Volume (24h)</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {tokens.map(token => (
+                    <tr key={token.id || token.symbol} 
+                        className={selectedTokens.some(t => t.symbol === token.symbol) ? 'selected' : ''}>
+                        <td>
+                            <input
+                                type="checkbox"
+                                checked={selectedTokens.some(t => t.symbol === token.symbol)}
+                                onChange={() => onSelectToken(token)}
+                            />
+                        </td>
+                        <td className="symbol-cell">
+                            <strong>{token.symbol}</strong>
+                        </td>
+                        <td>{token.name}</td>
+                        <td>${token.price}</td>
+                        <td>${token.market_cap?.toLocaleString()}</td>
+                        <td>${token.volume_24h?.toLocaleString()}</td>
+                        <td>{new Date(token.updated_at || token.created_at).toLocaleDateString()}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+// Comparison Table Component (when comparing)
+function ComparisonTable({ tokens, selectedTokens, onSelectToken, viewMode }) {
+    return (
+        <table className="comparison-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Symbol</th>
+                    <th className="source-header">Database</th>
+                    <th className="source-header">JSON File</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {tokens.map(item => (
+                    <ComparisonRow 
+                        key={item.symbol}
+                        item={item}
+                        isSelected={selectedTokens.some(t => t.symbol === item.symbol)}
+                        onSelect={() => onSelectToken(item)}
+                        viewMode={viewMode}
+                    />
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+// Comparison Row Component
+function ComparisonRow({ item, isSelected, onSelect, viewMode }) {
+    const { symbol, inDatabase, inJson, database, json, match } = item;
+    
+    // Determine row style based on comparison
+    const getRowClass = () => {
+        if (!inDatabase && inJson) return 'only-json';
+        if (inDatabase && !inJson) return 'only-db';
+        if (inDatabase && inJson && !match) return 'different';
+        if (match) return 'matching';
+        return '';
+    };
+
+    // Format value for display
+    const formatValue = (value, field) => {
+        if (value === null || value === undefined) return '—';
+        
+        switch(field) {
+            case 'price':
+                return `$${parseFloat(value).toFixed(2)}`;
+            case 'market_cap':
+            case 'volume_24h':
+                return value ? `$${parseFloat(value).toLocaleString()}` : '—';
+            default:
+                return value;
+        }
+    };
+
+    return (
+        <tr className={`${getRowClass()} ${isSelected ? 'selected' : ''}`}>
+            <td>
+                <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={onSelect}
+                />
+            </td>
+            <td className="symbol-cell">
+                <strong>{symbol}</strong>
+            </td>
+            
+            {/* Database Column */}
+            <td className="source-col db-col">
+                {inDatabase ? (
+                    <div className="source-data">
+                        <div className="source-name">{database.name}</div>
+                        <div className="source-details">
+                            <span>Price: {formatValue(database.price, 'price')}</span>
+                            <span>MCap: {formatValue(database.market_cap, 'market_cap')}</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="source-missing">Not in DB</div>
+                )}
+            </td>
+            
+            {/* JSON Column */}
+            <td className="source-col json-col">
+                {inJson ? (
+                    <div className="source-data">
+                        <div className="source-name">{json.name}</div>
+                        <div className="source-details">
+                            <span>Price: {formatValue(json.price, 'price')}</span>
+                            <span>MCap: {formatValue(json.market_cap, 'market_cap')}</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="source-missing">Not in JSON</div>
+                )}
+            </td>
+            
+            {/* Status Column */}
+            <td className="status-col">
+                <div className={`status-badge ${getRowClass()}`}>
+                    {!inDatabase && inJson && 'Only in JSON'}
+                    {inDatabase && !inJson && 'Only in DB'}
+                    {inDatabase && inJson && match && '✅ Match'}
+                    {inDatabase && inJson && !match && '❌ Different'}
+                </div>
+            </td>
+            
+            {/* Actions Column */}
+            <td className="actions-col">
+                {inDatabase && (
+                    <button className="edit-btn">Edit</button>
+                )}
+                {!inDatabase && inJson && (
+                    <button className="import-btn">Import</button>
+                )}
+                {(inDatabase || inJson) && viewMode === 'diff' && (
+                    <button className="merge-btn">Merge</button>
+                )}
+            </td>
         </tr>
-      </thead>
-      <tbody>
-        {tokens.map(token => (
-          <TokenRow
-            key={token.id}
-            token={token}
-            isSelected={selectedTokens.some(t => t.id === token.id)}
-            onSelect={() => onSelectToken(token)}
-            onEdit={() => onEditToken(token)}
-            onDelete={() => onDeleteToken(token.id, token.symbol)}
-          />
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-// Sub-component: Token Row
-function TokenRow({ token, isSelected, onSelect, onEdit, onDelete }) {
-  return (
-    <tr className={isSelected ? 'selected' : ''}>
-      <td>
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onSelect}
-        />
-      </td>
-      <td className="symbol-cell">
-        <strong>{token.symbol}</strong>
-        {token.image && (
-          <img src={token.image} alt={token.symbol} className="token-icon" />
-        )}
-      </td>
-      <td>{token.name}</td>
-      <td>{token.decimals}</td>
-      <td>
-        {token.addresses ? (
-          <div className="chain-badges">
-            {Object.keys(token.addresses).map(chain => (
-              <span key={chain} className="chain-badge">{chain}</span>
-            ))}
-          </div>
-        ) : 'None'}
-      </td>
-      <td className="actions-cell">
-        <button onClick={onEdit} className="edit-btn">Edit</button>
-        <button onClick={onDelete} className="delete-btn">Delete</button>
-      </td>
-    </tr>
-  );
-}
-
-// Sub-component: Edit Modal
-function EditTokenModal({ token, onSave, onCancel, onChange }) {
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h3>Edit Token: {token.symbol}</h3>
-        
-        <div className="form-group">
-          <label>Symbol</label>
-          <input
-            value={token.symbol}
-            onChange={(e) => onChange({ symbol: e.target.value })}
-          />
-        </div>
-        
-        <div className="form-group">
-          <label>Name</label>
-          <input
-            value={token.name}
-            onChange={(e) => onChange({ name: e.target.value })}
-          />
-        </div>
-        
-        <div className="form-group">
-          <label>Decimals</label>
-          <input
-            type="number"
-            value={token.decimals}
-            onChange={(e) => onChange({ decimals: parseInt(e.target.value) })}
-          />
-        </div>
-        
-        {/* Add more fields as needed */}
-        
-        <div className="modal-actions">
-          <button onClick={onSave} className="save-btn">Save</button>
-          <button onClick={onCancel} className="cancel-btn">Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default AdminTokenManager;
