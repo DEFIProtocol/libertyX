@@ -1,4 +1,4 @@
-require('dotenv').config(); 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -40,10 +40,6 @@ const tokensRoutes = require('./routes/tokens')(pool);
 // API Routes
 app.use('/api/tokens', tokensRoutes);
 
-// Import exchange routes
-const createPricingRoutes = require('./routes/pricing');
-app.use('/api/pricing', createPricingRoutes);
-
 // Add RapidAPI routes with rate limiting and caching
 const rapidapiRoutes = require('./routes/rapidapi');
 app.use('/api/rapidapi', cacheMiddleware, rapidApiLimiter, rapidapiRoutes);
@@ -75,9 +71,9 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log('Available endpoints:');
     console.log(`  http://localhost:${PORT}/api/tokens`);
-    console.log(`  http://localhost:${PORT}/api/pricing`);
     console.log(`  http://localhost:${PORT}/api/rapidapi/coins`);
     console.log(`  http://localhost:${PORT}/api/rapidapi/coin/:coinId`);
     console.log(`  http://localhost:${PORT}/api/rapidapi/coin/:coinId/history`);
     console.log(`  http://localhost:${PORT}/api/rapidapi/stats`);
+    console.log(`  http://localhost:${PORT}/api/health`);
 });

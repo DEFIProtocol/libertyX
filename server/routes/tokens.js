@@ -12,13 +12,13 @@ module.exports = (pool) => {
         
         // Try different paths - one of these should work
         const possiblePaths = [
-            path.join(__dirname, '../data/tokens_smart_consolidated.json'),
-            path.join(__dirname, './data/tokens_smart_consolidated.json'),
-            path.join(__dirname, '../../data/tokens_smart_consolidated.json'),
+            path.join(__dirname, '../tokens_smart_consolidated.json'),
+            path.join(__dirname, './tokens_smart_consolidated.json'),
+            path.join(__dirname, '../../tokens_smart_consolidated.json'),
             path.join(process.cwd(), 'data/tokens_smart_consolidated.json'),
             path.join(process.cwd(), 'server/data/tokens_smart_consolidated.json'),
-            './data/tokens_smart_consolidated.json',
-            '../data/tokens_smart_consolidated.json',
+            './tokens_smart_consolidated.json',
+            '../tokens_smart_consolidated.json',
             'tokens_smart_consolidated.json'
         ];
         

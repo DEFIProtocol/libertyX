@@ -1,12 +1,33 @@
 import React, { useState, useMemo } from 'react';
 import './token-table.css';
+import { useGetCryptos } from '../../hooks';
 
-function TokenTable({ tokens, loading }) {
+function TokenTable() {
+  const { data, loading, error } = useGetCryptos(1200);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
   
-  // Helper to get sortable value - MOVE THIS ABOVE useMemo
+  // Transform the API data to match your table structure
+  const tokens = useMemo(() => {
+    if (!data) return [];
+    
+    return data.coins?.map(coin => ({
+      uuid: coin.uuid,
+      symbol: coin.symbol,
+      name: coin.name,
+      price: coin.price,
+      marketCap: coin.marketCap,
+      change: coin.change,
+      rank: coin.rank,
+      image: coin.iconUrl,
+      type: coin.type,
+      decimals: coin.decimals,
+      addresses: coin.addresses || {}
+    })) || [];
+  }, [data]);
+  
+  // Helper to get sortable value
   const getSortValue = (token, key) => {
     switch(key) {
       case 'symbol':
@@ -97,6 +118,16 @@ function TokenTable({ tokens, loading }) {
     return `$${num.toFixed(2)}`;
   };
   
+  // Error state
+  if (error) {
+    return (
+      <div className="error-container">
+        <p>Error loading tokens: {error}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
+      </div>
+    );
+  }
+  
   // Loading state
   if (loading) {
     return (
@@ -168,7 +199,7 @@ function TokenTable({ tokens, loading }) {
                     <td className="token-cell">
                       <div className="token-info">
                         <img 
-                          src={token.image || token.iconUrl} 
+                          src={token.image} 
                           alt={token.name}
                           className="token-icon"
                           onError={(e) => {
