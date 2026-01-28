@@ -1,31 +1,12 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './token-table.css';
-import { useGetCryptos } from '../../hooks';
 
-function TokenTable() {
-  const { data, loading, error } = useGetCryptos(1200);
+function TokenTable({ tokens = [] }) {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
-  
-  // Transform the API data to match your table structure
-  const tokens = useMemo(() => {
-    if (!data) return [];
-    
-    return data.coins?.map(coin => ({
-      uuid: coin.uuid,
-      symbol: coin.symbol,
-      name: coin.name,
-      price: coin.price,
-      marketCap: coin.marketCap,
-      change: coin.change,
-      rank: coin.rank,
-      image: coin.iconUrl,
-      type: coin.type,
-      decimals: coin.decimals,
-      addresses: coin.addresses || {}
-    })) || [];
-  }, [data]);
   
   // Helper to get sortable value
   const getSortValue = (token, key) => {
@@ -49,117 +30,76 @@ function TokenTable() {
   
   // Filter and sort tokens
   const filteredAndSortedTokens = useMemo(() => {
-    let filtered = tokens || [];
-    
-    // Apply search filter
-    if (searchTerm) {
+    let filtered = tokens.filter(token => {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(token => 
-        (token.symbol && token.symbol.toLowerCase().includes(term)) ||
-        (token.name && token.name.toLowerCase().includes(term))
+      return (
+        token.symbol?.toLowerCase().includes(term) ||
+        token.name?.toLowerCase().includes(term)
       );
-    }
-    
-    // Apply sorting
-    return [...filtered].sort((a, b) => {
+    });
+
+    // Sort
+    const sorted = [...filtered].sort((a, b) => {
       const aValue = getSortValue(a, sortConfig.key);
       const bValue = getSortValue(b, sortConfig.key);
-      
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
       return 0;
     });
+
+    return sorted;
   }, [tokens, searchTerm, sortConfig]);
-  
-  // Handle sort click
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
   };
-  
-  // Toggle row expansion
-  const toggleRowExpansion = (uuid) => {
+
+  const formatPrice = (price) => {
+    return parseFloat(price).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
+  const formatMarketCap = (cap) => {
+    const num = parseFloat(cap);
+    if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
+    return `$${num.toFixed(2)}`;
+  };
+
+  const toggleRowExpansion = (tokenKey) => {
     const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(uuid)) {
-      newExpanded.delete(uuid);
+    if (newExpanded.has(tokenKey)) {
+      newExpanded.delete(tokenKey);
     } else {
-      newExpanded.add(uuid);
+      newExpanded.add(tokenKey);
     }
     setExpandedRows(newExpanded);
   };
-  
-  // Format number helper
-  const formatPrice = (price) => {
-    if (!price || price === '0') return '$0.00';
-    const num = parseFloat(price);
-    if (isNaN(num)) return '$0.00';
-    
-    if (num >= 1000) {
-      return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    if (num >= 1) {
-      return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
-    }
-    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
+
+  const handleTokenClick = (uuid) => {
+    navigate(`/token/${uuid}`);
   };
-  
-  // Format market cap
-  const formatMarketCap = (cap) => {
-    if (!cap || cap === '0') return '$0';
-    const num = parseFloat(cap);
-    if (isNaN(num)) return '$0';
-    
-    if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
-    if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-    if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-    if (num >= 1e3) return `$${(num / 1e3).toFixed(2)}K`;
-    return `$${num.toFixed(2)}`;
-  };
-  
-  // Error state
-  if (error) {
-    return (
-      <div className="error-container">
-        <p>Error loading tokens: {error}</p>
-        <button onClick={() => window.location.reload()}>Retry</button>
-      </div>
-    );
-  }
-  
-  // Loading state
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading token data...</p>
-      </div>
-    );
-  }
-  
-  if (!tokens || tokens.length === 0) {
-    return (
-      <div className="no-tokens">
-        <p>No tokens found. Try refreshing or check your connection.</p>
-      </div>
-    );
-  }
-  
+
   return (
     <div className="token-table-container">
-      {/* Search Bar */}
-      <div className="search-container">
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <input
+          placeholder="Search by name or symbol..."
+          className="searchBar"
           type="text"
-          placeholder="Search tokens by symbol or name..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="search-input"
         />
-        <div className="search-stats">
-          Showing {filteredAndSortedTokens.length} of {tokens.length} tokens
-        </div>
       </div>
       
       {/* Table */}
@@ -296,10 +236,10 @@ function TokenTable() {
                                 className="action-btn primary"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  window.open(`https://coinranking.com/coin/${token.uuid}`, '_blank');
+                                  navigate(`/token/${token.uuid}`);
                                 }}
                               >
-                                View on CoinRanking
+                                View Token Details
                               </button>
                             )}
                           </div>

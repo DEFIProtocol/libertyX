@@ -1,9 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTokens } from '../contexts/TokenContext';
-import { 
-  useCryptoMarket,        // This is useGetCryptos
-  useCryptoBatchPrices    // This is useGetMultipleCryptoDetails
-} from '../hooks';
+import { useGetCryptosQuery } from '../hooks';
 import TokenTable from '../components/Tokens/TokenTable';
 import './Tokens.css';
 
@@ -18,12 +15,12 @@ function Tokens() {
     refreshAll
   } = useTokens();
   
-  // Get ALL coins from RapidAPI using your hook
+  // Get ALL coins from RapidAPI using new hook
   const { 
     data: marketData, 
-    loading: loadingMarket,
-    refresh: refreshMarketData 
-  } = useCryptoMarket(1200); // Get 1200 coins
+    isFetching: loadingMarket,
+    refetch: refetchMarketData 
+  } = useGetCryptosQuery(1200); // Get 1200 coins
   
   // Extract coins array from market data
   const marketCoins = useMemo(() => {
@@ -44,14 +41,7 @@ function Tokens() {
       }
     }).filter(uuid => uuid); // Remove undefined
   }, [contextTokens, comparisonMode]);
-  
-  // Get batch prices for our specific tokens using your hook
-  const { 
-    data: batchPrices,
-    loading: loadingBatchPrices,
-    refresh: refreshBatchPrices
-  } = useCryptoBatchPrices(tokenUuids);
-  
+
   // Local state for price refresh
   const [priceRefreshKey, setPriceRefreshKey] = useState(0);
   
@@ -72,16 +62,13 @@ function Tokens() {
       
       if (!tokenData) return null;
       
-      // Get price data for this specific token
-      const priceData = batchPrices?.[tokenData.uuid];
-      const marketCoin = priceData?.data?.coin;
-      
       // Also try to find in the full market data (for additional info)
       const fullMarketCoin = marketCoins.find(coin => coin.uuid === tokenData.uuid);
       
       return {
         // Base token data
         ...tokenData,
+        uuid: tokenData.uuid,
         symbol: tokenData.symbol || token.symbol,
         name: tokenData.name || token.symbol,
         image: tokenData.image,
@@ -89,39 +76,34 @@ function Tokens() {
         type: tokenData.type,
         decimals: tokenData.decimals,
         
-        // Price data from batch API call (more efficient)
-        price: marketCoin?.price || fullMarketCoin?.price || '0',
-        marketCap: marketCoin?.marketCap || fullMarketCoin?.marketCap || '0',
-        change: marketCoin?.change || fullMarketCoin?.change || '0',
-        rank: marketCoin?.rank || fullMarketCoin?.rank || 9999,
-        sparkline: marketCoin?.sparkline || fullMarketCoin?.sparkline,
-        iconUrl: marketCoin?.iconUrl || fullMarketCoin?.iconUrl || tokenData.image,
+        // Price data from market data
+        price: fullMarketCoin?.price || '0',
+        marketCap: fullMarketCoin?.marketCap || '0',
+        change: fullMarketCoin?.change || '0',
+        rank: fullMarketCoin?.rank || 9999,
+        sparkline: fullMarketCoin?.sparkline,
+        iconUrl: fullMarketCoin?.iconUrl || tokenData.image,
         
         // For comparison mode
         inDatabase: comparisonMode ? token.inDatabase : true,
         inJson: comparisonMode ? token.inJson : false,
-        isMatch: comparisonMode ? token.match : true,
-        
-        // Add the price data object for debugging
-        _priceData: priceData
+        isMatch: comparisonMode ? token.match : true
       };
     }).filter(token => token !== null);
-  }, [contextTokens, marketCoins, batchPrices, comparisonMode, priceRefreshKey]);
+  }, [contextTokens, marketCoins, comparisonMode, priceRefreshKey]);
   
   // Refresh all data
   const handleRefreshAll = async () => {
     // Refresh token data from context
     await refreshAll();
     // Refresh market data
-    refreshMarketData();
-    // Refresh batch prices
-    refreshBatchPrices();
+    refetchMarketData();
     // Force re-render
     setPriceRefreshKey(prev => prev + 1);
   };
   
   // Get loading state
-  const isLoading = loadingAll || loadingMarket || loadingBatchPrices;
+  const isLoading = loadingAll || loadingMarket;
   
   // Get tokens with market data
   const tokensWithMarketData = useMemo(() => {

@@ -1,0 +1,308 @@
+/* Chart Container */
+.chart-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.chart-container.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.chart-container.error {
+  border: 1px solid #fee2e2;
+  background: #fef2f2;
+}
+
+/* Chart Header */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.chart-title {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.price-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.price-stat.positive .price {
+  color: #10b981;
+}
+
+.price-stat.negative .price {
+  color: #ef4444;
+}
+
+.price-stat .price {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.price-stat .change {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.price-stat.positive .change {
+  color: #10b981;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.price-stat.negative .change {
+  color: #ef4444;
+  background: #fef2f2;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Period Selector */
+.period-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.period-btn {
+  padding: 6px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.period-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #f0f7ff;
+}
+
+.period-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+/* Chart Wrapper */
+.chart-wrapper {
+  width: 100%;
+  margin: 20px 0;
+  overflow-x: auto;
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 10px 0;
+}
+
+.chart-svg {
+  width: 100%;
+  height: auto;
+  min-height: 300px;
+  max-width: 100%;
+}
+
+.chart-svg .grid line {
+  stroke: #e5e7eb;
+  stroke-width: 1;
+}
+
+.chart-svg .axis-label {
+  font-size: 11px;
+  fill: #9ca3af;
+  font-weight: 500;
+}
+
+/* Chart Status States */
+.chart-loading,
+.chart-empty,
+.chart-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 15px;
+  color: #6b7280;
+}
+
+.chart-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.chart-loading p,
+.chart-empty p {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.chart-error p {
+  font-size: 14px;
+  color: #dc2626;
+}
+
+.retry-btn {
+  padding: 8px 16px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: #dc2626;
+}
+
+/* Chart Statistics */
+.chart-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+  padding: 15px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-item label {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-item .value {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Chart Labels */
+.chart-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 0 40px;
+  font-size: 12px;
+  color: #9ca3af;
+  opacity: 0.6;
+}
+
+.label-time {
+  font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .period-selector {
+    width: 100%;
+  }
+
+  .chart-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .chart-title h3 {
+    font-size: 16px;
+  }
+
+  .price-stat .price {
+    font-size: 18px;
+  }
+
+  .chart-svg {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-container {
+    padding: 15px;
+  }
+
+  .chart-title h3 {
+    font-size: 14px;
+  }
+
+  .price-stat .price {
+    font-size: 16px;
+  }
+
+  .price-stat .change {
+    font-size: 12px;
+  }
+
+  .period-btn {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .chart-stats {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .stat-item label {
+    font-size: 10px;
+  }
+
+  .stat-item .value {
+    font-size: 14px;
+  }
+
+  .chart-labels {
+    padding: 0 20px;
+    font-size: 10px;
+  }
+}

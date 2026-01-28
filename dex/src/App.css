@@ -435,14 +435,33 @@ header {
 
 .chainSelect {
   background: transparent;
-  color: var(--text);
+  color: #ffffff;
   border: none;
   font-weight: 700;
   font-size: 14px;
   appearance: none;
+  cursor: pointer;
 }
 
-.chainSelect:focus { outline: none; }
+.chainSelect:hover {
+  color: #99c800;
+}
+
+.chainSelect:focus { 
+  outline: none;
+  color: #99c800;
+}
+
+.chainSelect option {
+  background: #333;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.chainSelect option:checked {
+  background: #99c800;
+  color: #333;
+}
 
 @media (max-width: 420px) {
   header { padding-left: 12px; padding-right: 12px; }
