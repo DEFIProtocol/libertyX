@@ -5,3 +5,6 @@ export {
     useGetCryptoHistoryQuery,
     useSearchCoinsQuery
 } from './useRapidApi';
+
+// Export token CRUD hook
+export { useTokenCrud } from './useTokenCrud';

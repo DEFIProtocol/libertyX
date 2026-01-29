@@ -361,6 +361,11 @@
   .token-cell {
     min-width: 200px;
   }
+
+  .marketcap-col,
+  .marketcap-cell {
+    display: none;
+  }
   
   .addresses-grid {
     grid-template-columns: 1fr;

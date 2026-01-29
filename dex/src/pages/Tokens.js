@@ -9,9 +9,6 @@ function Tokens() {
   const { 
     displayTokens: contextTokens, 
     loadingAll, 
-    comparisonMode,
-    toggleComparisonMode,
-    comparisonStats,
     refreshAll
   } = useTokens();
   
@@ -31,16 +28,10 @@ function Tokens() {
   const tokenUuids = useMemo(() => {
     if (!contextTokens) return [];
     
-    return contextTokens.map(token => {
-      if (comparisonMode) {
-        // In comparison mode, get UUID from database or JSON
-        return token.database?.uuid || token.json?.uuid;
-      } else {
-        // In normal mode, just get UUID from token
-        return token.uuid;
-      }
-    }).filter(uuid => uuid); // Remove undefined
-  }, [contextTokens, comparisonMode]);
+    return contextTokens
+      .map(token => token.uuid)
+      .filter(uuid => uuid);
+  }, [contextTokens]);
 
   // Local state for price refresh
   const [priceRefreshKey, setPriceRefreshKey] = useState(0);
@@ -50,16 +41,7 @@ function Tokens() {
     if (!contextTokens) return [];
     
     return contextTokens.map(token => {
-      // Handle comparison mode vs normal mode
-      let tokenData;
-      if (comparisonMode) {
-        // In comparison mode, use database token if available, otherwise JSON
-        tokenData = token.database || token.json;
-      } else {
-        // In normal mode, just use the token data
-        tokenData = token;
-      }
-      
+      const tokenData = token;
       if (!tokenData) return null;
       
       // Also try to find in the full market data (for additional info)
@@ -84,13 +66,13 @@ function Tokens() {
         sparkline: fullMarketCoin?.sparkline,
         iconUrl: fullMarketCoin?.iconUrl || tokenData.image,
         
-        // For comparison mode
-        inDatabase: comparisonMode ? token.inDatabase : true,
-        inJson: comparisonMode ? token.inJson : false,
-        isMatch: comparisonMode ? token.match : true
+        // For future flags
+        inDatabase: true,
+        inJson: false,
+        isMatch: true
       };
     }).filter(token => token !== null);
-  }, [contextTokens, marketCoins, comparisonMode, priceRefreshKey]);
+  }, [contextTokens, marketCoins, priceRefreshKey]);
   
   // Refresh all data
   const handleRefreshAll = async () => {
@@ -122,20 +104,13 @@ function Tokens() {
       {/* Header */}
       <div className="tokens-header">
         <div>
-          <h1>Tokens Dashboard</h1>
+          <h1>Tokens</h1>
           <p className="subtitle">
             {isLoading ? 'Loading...' : `${combinedTokens.length} tokens with real-time prices`}
           </p>
         </div>
         
         <div className="header-actions">
-          <button 
-            className={`mode-toggle ${comparisonMode ? 'active' : ''}`}
-            onClick={toggleComparisonMode}
-            disabled={isLoading}
-          >
-            {comparisonMode ? '🔄 Comparison Mode' : '📊 Normal Mode'}
-          </button>
           <button 
             className="refresh-button"
             onClick={handleRefreshAll}
@@ -146,56 +121,6 @@ function Tokens() {
         </div>
       </div>
       
-      {/* Quick Stats */}
-      <div className="quick-stats">
-        <div className="stat-card">
-          <div className="stat-value">{combinedTokens.length}</div>
-          <div className="stat-label">Total Tokens</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{tokensWithMarketData.length}</div>
-          <div className="stat-label">With Prices</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            ${(totalMarketCap / 1e9).toLocaleString('en-US', { maximumFractionDigits: 2 })}B
-          </div>
-          <div className="stat-label">Total Market Cap</div>
-        </div>
-        {comparisonMode && (
-          <>
-            <div className="stat-card">
-              <div className="stat-value">{comparisonStats.inBoth}</div>
-              <div className="stat-label">In Both Sources</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">{comparisonStats.matching}</div>
-              <div className="stat-label">Perfect Matches</div>
-            </div>
-          </>
-        )}
-      </div>
-      
-      {/* Comparison Stats - Only show in comparison mode */}
-      {comparisonMode && (
-        <div className="comparison-details">
-          <h3>Data Source Comparison</h3>
-          <div className="comparison-grid">
-            <div className="comparison-item">
-              <span className="label">Only in Database:</span>
-              <span className="value">{comparisonStats.onlyInDb}</span>
-            </div>
-            <div className="comparison-item">
-              <span className="label">Only in JSON:</span>
-              <span className="value">{comparisonStats.onlyInJson}</span>
-            </div>
-            <div className="comparison-item">
-              <span className="label">Different Data:</span>
-              <span className="value">{comparisonStats.different}</span>
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Main Content */}
       <div className="tokens-content">

@@ -52,16 +52,148 @@ module.exports = (pool) => {
         throw error;
     }
 };
+
+    // ======== TOKEN ADDRESS HELPERS ========
+    let tokenAddressMetaCache = null;
+
+    const getTokenAddressMeta = async () => {
+        if (tokenAddressMetaCache) return tokenAddressMetaCache;
+        try {
+            const result = await pool.query(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'token_address'"
+            );
+            const columns = new Set(result.rows.map(row => row.column_name));
+
+            const meta = {
+                columns,
+                tokenIdCol: columns.has('token_id') ? 'token_id' : null,
+                tokenSymbolCol: columns.has('token_symbol')
+                    ? 'token_symbol'
+                    : columns.has('symbol')
+                    ? 'symbol'
+                    : null,
+                chainCol: columns.has('chain')
+                    ? 'chain'
+                    : columns.has('network')
+                    ? 'network'
+                    : null,
+                addressCol: columns.has('address')
+                    ? 'address'
+                    : columns.has('contract_address')
+                    ? 'contract_address'
+                    : null
+            };
+
+            tokenAddressMetaCache = meta;
+            return meta;
+        } catch (error) {
+            const meta = {
+                columns: new Set(),
+                tokenIdCol: null,
+                tokenSymbolCol: null,
+                chainCol: null,
+                addressCol: null
+            };
+            tokenAddressMetaCache = meta;
+            return meta;
+        }
+    };
+
+    const getTokenBySymbol = async (symbol) => {
+        const result = await pool.query(
+            'SELECT * FROM tokens WHERE LOWER(symbol) = LOWER($1)',
+            [symbol]
+        );
+        return result.rows[0] || null;
+    };
+
+    const getTokenAddressesMap = async () => {
+        const meta = await getTokenAddressMeta();
+        const byTokenId = new Map();
+        const bySymbol = new Map();
+
+        if (!meta.chainCol || !meta.addressCol) {
+            return { byTokenId, bySymbol, meta };
+        }
+
+        if (meta.tokenIdCol) {
+            const query = `SELECT ${meta.tokenIdCol} AS token_id, ${meta.chainCol} AS chain, ${meta.addressCol} AS address FROM token_address`;
+            const result = await pool.query(query);
+
+            for (const row of result.rows) {
+                if (row.token_id === null || row.token_id === undefined) continue;
+                if (!byTokenId.has(row.token_id)) byTokenId.set(row.token_id, {});
+                byTokenId.get(row.token_id)[row.chain] = row.address;
+            }
+
+            return { byTokenId, bySymbol, meta };
+        }
+
+        if (meta.tokenSymbolCol) {
+            const query = `SELECT ${meta.tokenSymbolCol} AS symbol, ${meta.chainCol} AS chain, ${meta.addressCol} AS address FROM token_address`;
+            const result = await pool.query(query);
+
+            for (const row of result.rows) {
+                const symbolKey = row.symbol ? row.symbol.toLowerCase() : null;
+                if (!symbolKey) continue;
+                if (!bySymbol.has(symbolKey)) bySymbol.set(symbolKey, {});
+                bySymbol.get(symbolKey)[row.chain] = row.address;
+            }
+
+            return { byTokenId, bySymbol, meta };
+        }
+
+        return { byTokenId, bySymbol, meta };
+    };
+
+    const getTokenAddressesForToken = async ({ tokenId, symbol }) => {
+        const meta = await getTokenAddressMeta();
+        if (!meta.chainCol || !meta.addressCol) return {};
+
+        let result = { rows: [] };
+
+        if (meta.tokenIdCol && tokenId !== null && tokenId !== undefined) {
+            const query = `SELECT ${meta.chainCol} AS chain, ${meta.addressCol} AS address FROM token_address WHERE ${meta.tokenIdCol} = $1`;
+            result = await pool.query(query, [tokenId]);
+        } else if (meta.tokenSymbolCol && symbol) {
+            const query = `SELECT ${meta.chainCol} AS chain, ${meta.addressCol} AS address FROM token_address WHERE LOWER(${meta.tokenSymbolCol}) = LOWER($1)`;
+            result = await pool.query(query, [symbol]);
+        }
+
+        const addresses = {};
+        for (const row of result.rows) {
+            if (row.chain) addresses[row.chain] = row.address;
+        }
+        return addresses;
+    };
     // ========== DATABASE ROUTES ==========
     
     // GET all tokens from DATABASE
     router.get('/db', async (req, res) => {
         try {
             const result = await pool.query('SELECT * FROM tokens ORDER BY symbol');
+            const tokens = result.rows;
+            const addressMap = await getTokenAddressesMap();
+
+            const enrichedTokens = tokens.map(token => {
+                let addresses = {};
+
+                if (addressMap.byTokenId.size && token.id !== undefined && token.id !== null) {
+                    addresses = addressMap.byTokenId.get(token.id) || {};
+                } else if (addressMap.bySymbol.size && token.symbol) {
+                    addresses = addressMap.bySymbol.get(token.symbol.toLowerCase()) || {};
+                }
+
+                return {
+                    ...token,
+                    addresses
+                };
+            });
+
             res.json({
                 source: 'database',
-                data: result.rows,
-                count: result.rows.length
+                data: enrichedTokens,
+                count: enrichedTokens.length
             });
         } catch (error) {
             console.error('Error fetching tokens from DB:', error);
@@ -85,14 +217,201 @@ module.exports = (pool) => {
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: 'Token not found in database' });
             }
-            
+            const token = result.rows[0];
+            const addresses = await getTokenAddressesForToken({ tokenId: token.id, symbol: token.symbol });
+
             res.json({
                 source: 'database',
-                data: result.rows[0]
+                data: {
+                    ...token,
+                    addresses
+                }
             });
         } catch (error) {
             console.error('Error fetching token from DB:', error);
             res.status(500).json({ error: 'Failed to fetch token from database' });
+        }
+    });
+
+    // ======== TOKEN ADDRESS ROUTES (DATABASE) ========
+
+    // GET addresses for a token (by symbol)
+    router.get('/db/:symbol/addresses', async (req, res) => {
+        try {
+            const { symbol } = req.params;
+            const token = await getTokenBySymbol(symbol);
+
+            if (!token) {
+                return res.status(404).json({ error: 'Token not found in database' });
+            }
+
+            const addresses = await getTokenAddressesForToken({ tokenId: token.id, symbol: token.symbol });
+
+            res.json({
+                source: 'database',
+                data: addresses,
+                count: Object.keys(addresses).length
+            });
+        } catch (error) {
+            console.error('Error fetching token addresses:', error);
+            res.status(500).json({ error: 'Failed to fetch token addresses' });
+        }
+    });
+
+    // POST create token address
+    router.post('/db/:symbol/addresses', async (req, res) => {
+        try {
+            const { symbol } = req.params;
+            const { chain, address } = req.body;
+
+            if (!chain || !address) {
+                return res.status(400).json({ error: 'Chain and address are required' });
+            }
+
+            const token = await getTokenBySymbol(symbol);
+            if (!token) {
+                return res.status(404).json({ error: 'Token not found in database' });
+            }
+
+            const meta = await getTokenAddressMeta();
+            if (!meta.chainCol || !meta.addressCol) {
+                return res.status(500).json({ error: 'token_address table schema is missing required columns' });
+            }
+
+            const columns = [];
+            const values = [];
+
+            if (meta.tokenIdCol && token.id !== undefined && token.id !== null) {
+                columns.push(meta.tokenIdCol);
+                values.push(token.id);
+            }
+
+            if (meta.tokenSymbolCol) {
+                columns.push(meta.tokenSymbolCol);
+                values.push(token.symbol);
+            }
+
+            columns.push(meta.chainCol);
+            values.push(chain);
+
+            columns.push(meta.addressCol);
+            values.push(address);
+
+            if (columns.length < 3) {
+                return res.status(500).json({ error: 'token_address table schema is missing required link columns' });
+            }
+
+            const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
+            const query = `INSERT INTO token_address (${columns.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+            const result = await pool.query(query, values);
+
+            res.status(201).json(result.rows[0]);
+        } catch (error) {
+            console.error('Error creating token address:', error);
+            res.status(500).json({ error: 'Failed to create token address' });
+        }
+    });
+
+    // PUT update token address
+    router.put('/db/:symbol/addresses/:chain', async (req, res) => {
+        try {
+            const { symbol, chain } = req.params;
+            const { address } = req.body;
+
+            if (!address) {
+                return res.status(400).json({ error: 'Address is required' });
+            }
+
+            const token = await getTokenBySymbol(symbol);
+            if (!token) {
+                return res.status(404).json({ error: 'Token not found in database' });
+            }
+
+            const meta = await getTokenAddressMeta();
+            if (!meta.chainCol || !meta.addressCol) {
+                return res.status(500).json({ error: 'token_address table schema is missing required columns' });
+            }
+
+            const where = [];
+            const values = [];
+            let paramCount = 1;
+
+            if (meta.tokenIdCol && token.id !== undefined && token.id !== null) {
+                where.push(`${meta.tokenIdCol} = $${paramCount}`);
+                values.push(token.id);
+                paramCount++;
+            } else if (meta.tokenSymbolCol) {
+                where.push(`LOWER(${meta.tokenSymbolCol}) = LOWER($${paramCount})`);
+                values.push(token.symbol);
+                paramCount++;
+            } else {
+                return res.status(500).json({ error: 'token_address table schema is missing token link column' });
+            }
+
+            where.push(`${meta.chainCol} = $${paramCount}`);
+            values.push(chain);
+            paramCount++;
+
+            values.push(address);
+            const query = `UPDATE token_address SET ${meta.addressCol} = $${paramCount} WHERE ${where.join(' AND ')} RETURNING *`;
+            const result = await pool.query(query, values);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Token address not found' });
+            }
+
+            res.json(result.rows[0]);
+        } catch (error) {
+            console.error('Error updating token address:', error);
+            res.status(500).json({ error: 'Failed to update token address' });
+        }
+    });
+
+    // DELETE token address
+    router.delete('/db/:symbol/addresses/:chain', async (req, res) => {
+        try {
+            const { symbol, chain } = req.params;
+
+            const token = await getTokenBySymbol(symbol);
+            if (!token) {
+                return res.status(404).json({ error: 'Token not found in database' });
+            }
+
+            const meta = await getTokenAddressMeta();
+            if (!meta.chainCol || !meta.addressCol) {
+                return res.status(500).json({ error: 'token_address table schema is missing required columns' });
+            }
+
+            const where = [];
+            const values = [];
+            let paramCount = 1;
+
+            if (meta.tokenIdCol && token.id !== undefined && token.id !== null) {
+                where.push(`${meta.tokenIdCol} = $${paramCount}`);
+                values.push(token.id);
+                paramCount++;
+            } else if (meta.tokenSymbolCol) {
+                where.push(`LOWER(${meta.tokenSymbolCol}) = LOWER($${paramCount})`);
+                values.push(token.symbol);
+                paramCount++;
+            } else {
+                return res.status(500).json({ error: 'token_address table schema is missing token link column' });
+            }
+
+            where.push(`${meta.chainCol} = $${paramCount}`);
+            values.push(chain);
+
+            const query = `DELETE FROM token_address WHERE ${where.join(' AND ')} RETURNING *`;
+            const result = await pool.query(query, values);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Token address not found' });
+            }
+
+            res.json({ message: 'Token address deleted successfully', deleted: result.rows[0] });
+        } catch (error) {
+            console.error('Error deleting token address:', error);
+            res.status(500).json({ error: 'Failed to delete token address' });
         }
     });
 
@@ -189,7 +508,24 @@ module.exports = (pool) => {
     router.get('/', async (req, res) => {
         try {
             const result = await pool.query('SELECT * FROM tokens ORDER BY symbol');
-            res.json(result.rows);
+            const tokens = result.rows;
+            const addressMap = await getTokenAddressesMap();
+            const enrichedTokens = tokens.map(token => {
+                let addresses = {};
+
+                if (addressMap.byTokenId.size && token.id !== undefined && token.id !== null) {
+                    addresses = addressMap.byTokenId.get(token.id) || {};
+                } else if (addressMap.bySymbol.size && token.symbol) {
+                    addresses = addressMap.bySymbol.get(token.symbol.toLowerCase()) || {};
+                }
+
+                return {
+                    ...token,
+                    addresses
+                };
+            });
+
+            res.json(enrichedTokens);
         } catch (error) {
             console.error('Error fetching tokens:', error);
             
@@ -216,8 +552,14 @@ module.exports = (pool) => {
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: 'Token not found' });
             }
-            
-            res.json(result.rows[0]);
+
+            const token = result.rows[0];
+            const addresses = await getTokenAddressesForToken({ tokenId: token.id, symbol: token.symbol });
+
+            res.json({
+                ...token,
+                addresses
+            });
         } catch (error) {
             console.error('Error fetching token:', error);
             res.status(500).json({ error: 'Failed to fetch token' });
@@ -260,19 +602,38 @@ module.exports = (pool) => {
     router.put('/:symbol', async (req, res) => {
         try {
             const { symbol } = req.params;
-            const { name, price, market_cap, volume_24h } = req.body;
+            const updateData = req.body;
             
-            const result = await pool.query(
-                `UPDATE tokens 
-                 SET name = COALESCE($2, name),
-                     price = COALESCE($3, price),
-                     market_cap = COALESCE($4, market_cap),
-                     volume_24h = COALESCE($5, volume_24h),
-                     updated_at = NOW()
-                 WHERE LOWER(symbol) = LOWER($1)
-                 RETURNING *`,
-                [symbol, name, price, market_cap, volume_24h]
-            );
+            // Build dynamic SET clause - exclude symbol as it's immutable
+            const allowedFields = [
+                'name', 'price', 'market_cap', 'volume_24h', 'type', 'decimals',
+                'address', 'image', 'ticker', 'rank', 'change'
+            ];
+            
+            const setClause = [];
+            const values = [symbol];
+            let paramCount = 2;
+            
+            for (const [key, value] of Object.entries(updateData)) {
+                if (allowedFields.includes(key) && value !== undefined && value !== null) {
+                    setClause.push(`${key} = $${paramCount}`);
+                    values.push(value);
+                    paramCount++;
+                }
+            }
+            
+            if (setClause.length === 0) {
+                return res.status(400).json({ error: 'No valid fields to update' });
+            }
+            
+            setClause.push(`updated_at = NOW()`);
+            
+            const query = `UPDATE tokens 
+                          SET ${setClause.join(', ')}
+                          WHERE LOWER(symbol) = LOWER($1)
+                          RETURNING *`;
+            
+            const result = await pool.query(query, values);
             
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: 'Token not found' });

@@ -1,12 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGetCryptosQuery } from '../../hooks';
 import './token-table.css';
 
 function TokenTable({ tokens = [] }) {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
+  
+  // Get market data to validate tokens exist
+  const { data: marketData } = useGetCryptosQuery(1200);
+  
+  // Extract market coins symbols for validation
+  const marketSymbols = useMemo(() => {
+    const coins = marketData?.data?.coins || [];
+    return new Set(coins.map(coin => coin.symbol?.toUpperCase()));
+  }, [marketData]);
   
   // Helper to get sortable value
   const getSortValue = (token, key) => {
@@ -21,8 +31,6 @@ function TokenTable({ tokens = [] }) {
         return parseFloat(token.marketCap) || 0;
       case 'change':
         return parseFloat(token.change) || 0;
-      case 'rank':
-        return token.rank || 9999;
       default:
         return 0;
     }
@@ -31,6 +39,11 @@ function TokenTable({ tokens = [] }) {
   // Filter and sort tokens
   const filteredAndSortedTokens = useMemo(() => {
     let filtered = tokens.filter(token => {
+      // Check if token symbol exists in market data
+      if (!marketSymbols.has(token.symbol?.toUpperCase())) {
+        return false;
+      }
+      
       const term = searchTerm.toLowerCase();
       return (
         token.symbol?.toLowerCase().includes(term) ||
@@ -53,7 +66,7 @@ function TokenTable({ tokens = [] }) {
     });
 
     return sorted;
-  }, [tokens, searchTerm, sortConfig]);
+  }, [tokens, searchTerm, sortConfig, marketSymbols]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -107,9 +120,6 @@ function TokenTable({ tokens = [] }) {
         <table className="token-table">
           <thead>
             <tr>
-              <th className="rank-col" onClick={() => handleSort('rank')}>
-                # {sortConfig.key === 'rank' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-              </th>
               <th className="token-col" onClick={() => handleSort('name')}>
                 Token {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
@@ -133,9 +143,6 @@ function TokenTable({ tokens = [] }) {
                     className={`token-row ${expandedRows.has(token.uuid) ? 'expanded' : ''}`}
                     onClick={() => token.uuid && toggleRowExpansion(token.uuid)}
                   >
-                    <td className="rank-cell">
-                      <span className="rank-badge">{token.rank || '—'}</span>
-                    </td>
                     <td className="token-cell">
                       <div className="token-info">
                         <img 
@@ -185,20 +192,12 @@ function TokenTable({ tokens = [] }) {
                         <div className="token-details-expanded">
                           <div className="details-grid">
                             <div className="detail-item">
-                              <label>UUID</label>
-                              <div className="value uuid-value">{token.uuid}</div>
-                            </div>
-                            <div className="detail-item">
                               <label>Symbol</label>
                               <div className="value">{token.symbol || '—'}</div>
                             </div>
                             <div className="detail-item">
                               <label>Type</label>
                               <div className="value">{token.type || 'Unknown'}</div>
-                            </div>
-                            <div className="detail-item">
-                              <label>Decimals</label>
-                              <div className="value">{token.decimals || '—'}</div>
                             </div>
                           </div>
                           
