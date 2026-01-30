@@ -122,6 +122,7 @@
   background: linear-gradient(to right, #667eea, #764ba2);
   outline: none;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .slippage-slider::-webkit-slider-thumb {

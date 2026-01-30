@@ -1,103 +1,67 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useTokens } from '../contexts/TokenContext';
-import { useGetCryptosQuery } from '../hooks';
+import React, { useMemo } from 'react';
+import { useBinanceWs } from '../contexts/BinanceWsContext';
+import { useGlobalPriceTokens } from '../hooks/useGlobalPriceTokens';
 import TokenTable from '../components/Tokens/TokenTable';
 import './Tokens.css';
 
 function Tokens() {
-  // Get tokens from context
-  const { 
-    displayTokens: contextTokens, 
-    loadingAll, 
-    refreshAll
-  } = useTokens();
-  
-  // Get ALL coins from RapidAPI using new hook
-  const { 
-    data: marketData, 
-    isFetching: loadingMarket,
-    refetch: refetchMarketData 
-  } = useGetCryptosQuery(1200); // Get 1200 coins
-  
-  // Extract coins array from market data
-  const marketCoins = useMemo(() => {
-    return marketData?.data?.coins || [];
-  }, [marketData]);
-  
-  // Get UUIDs from our tokens
-  const tokenUuids = useMemo(() => {
-    if (!contextTokens) return [];
-    
-    return contextTokens
-      .map(token => token.uuid)
-      .filter(uuid => uuid);
-  }, [contextTokens]);
+  const { isConnected: wsConnected, latestData } = useBinanceWs();
+  const {
+    tokens: baseTokens,
+    loading: loadingTokens,
+    error: tokenError,
+    refresh: refreshGlobalTokens
+  } = useGlobalPriceTokens();
 
-  // Local state for price refresh
-  const [priceRefreshKey, setPriceRefreshKey] = useState(0);
-  
+  const binanceBySymbol = useMemo(() => {
+    const map = {};
+    if (Array.isArray(latestData)) {
+      latestData.forEach((ticker) => {
+        if (ticker.s && ticker.c && ticker.s.endsWith('USDT')) {
+          const base = ticker.s.replace(/USDT$/i, '').toUpperCase();
+          map[base] = ticker;
+        }
+      });
+    }
+    return map;
+  }, [latestData]);
+
   // Combine tokens with market data
   const combinedTokens = useMemo(() => {
-    if (!contextTokens) return [];
-    
-    return contextTokens.map(token => {
-      const tokenData = token;
-      if (!tokenData) return null;
-      
-      // Also try to find in the full market data (for additional info)
-      const fullMarketCoin = marketCoins.find(coin => coin.uuid === tokenData.uuid);
-      
+    if (!baseTokens) return [];
+
+    return baseTokens.map(token => {
+      if (!token) return null;
+
+      const symbolKey = token.symbol?.toUpperCase();
+      const binanceTicker = symbolKey ? binanceBySymbol[symbolKey] : null;
+      const binancePrice = binanceTicker?.c ? parseFloat(binanceTicker.c) : null;
+
+      const price = binancePrice ?? (token.price ? parseFloat(token.price) : null);
+      const change = binanceTicker?.P ? parseFloat(binanceTicker.P) : null;
+
       return {
-        // Base token data
-        ...tokenData,
-        uuid: tokenData.uuid,
-        symbol: tokenData.symbol || token.symbol,
-        name: tokenData.name || token.symbol,
-        image: tokenData.image,
-        addresses: tokenData.addresses,
-        type: tokenData.type,
-        decimals: tokenData.decimals,
-        
-        // Price data from market data
-        price: fullMarketCoin?.price || '0',
-        marketCap: fullMarketCoin?.marketCap || '0',
-        change: fullMarketCoin?.change || '0',
-        rank: fullMarketCoin?.rank || 9999,
-        sparkline: fullMarketCoin?.sparkline,
-        iconUrl: fullMarketCoin?.iconUrl || tokenData.image,
-        
-        // For future flags
-        inDatabase: true,
-        inJson: false,
-        isMatch: true
+        ...token,
+        price: price !== null ? price.toString() : '0',
+        change: change !== null ? change.toString() : token.change?.toString() || '0',
+        marketCap: token.marketCap || token.market_cap || '0'
       };
     }).filter(token => token !== null);
-  }, [contextTokens, marketCoins, priceRefreshKey]);
+  }, [baseTokens, binanceBySymbol]);
+
   
   // Refresh all data
   const handleRefreshAll = async () => {
-    // Refresh token data from context
-    await refreshAll();
-    // Refresh market data
-    refetchMarketData();
-    // Force re-render
-    setPriceRefreshKey(prev => prev + 1);
+    try {
+      await fetch('/api/global-prices/refresh-rapidapi', { method: 'POST' });
+    } catch (error) {
+      // ignore refresh errors; still refetch tokens
+    }
+    await refreshGlobalTokens();
   };
   
   // Get loading state
-  const isLoading = loadingAll || loadingMarket;
-  
-  // Get tokens with market data
-  const tokensWithMarketData = useMemo(() => {
-    return combinedTokens.filter(token => token.price && token.price !== '0');
-  }, [combinedTokens]);
-  
-  // Calculate total market cap
-  const totalMarketCap = useMemo(() => {
-    return tokensWithMarketData.reduce((sum, token) => {
-      return sum + (parseFloat(token.marketCap) || 0);
-    }, 0);
-  }, [tokensWithMarketData]);
+  const isLoading = loadingTokens;
   
   return (
     <div className="tokens-page">
@@ -129,7 +93,7 @@ function Tokens() {
             <div className="spinner"></div>
             <p>Loading tokens and market data...</p>
             <p className="loading-details">
-              Fetching {tokenUuids.length} token prices from RapidAPI
+              Streaming {combinedTokens.length} token prices
             </p>
           </div>
         ) : (
@@ -144,16 +108,19 @@ function Tokens() {
       <div className="tokens-footer">
         <p>
           <strong>Data Sources:</strong> Token data from your database/JSON • 
-          Real-time prices from CoinRanking API via RapidAPI
+          Live prices from Binance
         </p>
         <div className="footer-details">
           <span className="timestamp">
             Last update: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
           <span className="api-status">
-            API Status: {marketData ? 'Connected' : 'Connecting...'}
+            API Status: {wsConnected ? 'Connected' : 'Connecting...'}
           </span>
         </div>
+        {tokenError && (
+          <p className="error-text">Error loading tokens: {tokenError}</p>
+        )}
       </div>
     </div>
   );

@@ -1,61 +1,265 @@
 // src/components/Admin/AdminPricingManager.jsx
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTokens } from '../../contexts/TokenContext';
-import { useLivePrices } from '../../hooks/useLivePrice';
+import { useBinanceWs } from '../../contexts/BinanceWsContext';
+import { useRapidApi } from '../../contexts/RapidApiContext';
 import './AdminPricingManager.css';
 
 function AdminPricingManager() {
     const { 
         dbTokens,
-        comparisonMode,
-        toggleComparisonMode,
-        loadingAll,
-        dbCount,
-        jsonCount
+        loadingAll
     } = useTokens();
-    
-    // Get top 10 tokens to avoid API limits
-    const topTokens = dbTokens.slice(0, 10).map(token => token.symbol);
-    
-    // Get live prices for top tokens
-    const { 
-        prices, 
-        isLoading: pricesLoading, 
-        error: pricesError,
-        streamingCount,
-        found
-    } = useLivePrices(topTokens, {
-        enabled: true
-    });
+
+    // RapidAPI cryptos (CoinRanking)
+    const {
+        coins: cryptoList,
+        isLoading: cryptosLoading,
+        error: cryptosError
+    } = useRapidApi();
+
+    const cryptosBySymbol = useMemo(() => {
+        const map = {};
+        cryptoList.forEach((coin) => {
+            const symbol = coin?.symbol?.toUpperCase();
+            if (symbol) {
+                map[symbol] = coin;
+            }
+        });
+        return map;
+    }, [cryptoList]);
+
+    const dbTokensBySymbol = useMemo(() => {
+        const map = {};
+        dbTokens.forEach((token) => {
+            const symbol = token?.symbol?.toUpperCase();
+            if (symbol) {
+                map[symbol] = token;
+            }
+        });
+        return map;
+    }, [dbTokens]);
+
+    // Binance mini-ticker stream (all USDT pairs)
+    const { latestData, isConnected: binanceConnected } = useBinanceWs();
+
+    const liveTickerBySymbol = useMemo(() => {
+        const map = {};
+        if (Array.isArray(latestData)) {
+            latestData.forEach((ticker) => {
+                if (ticker?.s && ticker.s.endsWith('USDT')) {
+                    const base = ticker.s.replace(/USDT$/i, '').toUpperCase();
+                    map[base] = {
+                        s: ticker.s,
+                        c: ticker.c,
+                        o: ticker.o || '0',
+                        lastUpdate: ticker.E || ticker.eventTime || Date.now(),
+                        hasLiveData: true,
+                        source: 'websocket',
+                        isStale: false,
+                        raw: ticker
+                    };
+                }
+            });
+        }
+        return map;
+    }, [latestData]);
+
+    const [initialSnapshot, setInitialSnapshot] = useState({});
+    const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
+
+    useEffect(() => {
+        const fetchSnapshot = async () => {
+            setIsLoadingSnapshot(true);
+            try {
+                const response = await fetch('/api/binance/all-prices');
+                const data = await response.json();
+                setInitialSnapshot(data?.prices || {});
+                console.log(`📊 Initial snapshot: ${Object.keys(data?.prices || {}).length} symbols`);
+            } catch (error) {
+                console.error('Failed to fetch snapshot:', error);
+            } finally {
+                setIsLoadingSnapshot(false);
+            }
+        };
+
+        fetchSnapshot();
+        const interval = setInterval(fetchSnapshot, 30 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const binancePairs = useMemo(() => {
+        const snapshotSymbols = Object.keys(initialSnapshot || {});
+        const liveSymbols = Object.keys(liveTickerBySymbol || {});
+        const combinedSymbols = new Set([...liveSymbols, ...snapshotSymbols]);
+
+        return Array.from(combinedSymbols).map((symbol) => {
+            const tickerData = liveTickerBySymbol[symbol];
+            const pair = `${symbol}USDT`;
+
+            if (tickerData && tickerData.c) {
+                return {
+                    s: pair,
+                    c: tickerData.c.toString(),
+                    o: tickerData.o || '0',
+                    lastUpdate: tickerData.lastUpdate,
+                    hasLiveData: true,
+                    source: 'websocket'
+                };
+            }
+
+            if (initialSnapshot[symbol]) {
+                return {
+                    s: pair,
+                    c: initialSnapshot[symbol].price?.toString() || '0',
+                    o: '0',
+                    lastUpdate: initialSnapshot[symbol].timestamp,
+                    hasLiveData: false,
+                    source: 'snapshot',
+                    isStale: true
+                };
+            }
+
+            return {
+                s: pair,
+                c: '0',
+                o: '0',
+                lastUpdate: null,
+                hasLiveData: false,
+                source: 'unknown',
+                isStale: true
+            };
+        });
+    }, [liveTickerBySymbol, initialSnapshot]);
+
+    const mergedRows = useMemo(() => {
+        return binancePairs.map((ticker) => {
+            const pair = ticker.s;
+            const base = pair.replace(/USDT$/, '');
+            const apiCoin = cryptosBySymbol[base];
+            const dbToken = dbTokensBySymbol[base];
+
+            const binancePrice = parseFloat(ticker.c || 0);
+            const apiPrice = apiCoin?.price ? parseFloat(apiCoin.price) : null;
+
+            return {
+                pair,
+                symbol: base,
+                name: apiCoin?.name || dbToken?.name || base,
+                uuid: apiCoin?.uuid || dbToken?.uuid,
+                dbPrice: dbToken?.price ?? null,
+                hasDbToken: !!dbToken,
+                apiPrice,
+                binancePrice,
+                priceSource: ticker.isStale ? 'stale' : 'binance',
+                isStreaming: !ticker.isStale && binanceConnected,
+                isStale: !!ticker.isStale,
+                lastUpdate: ticker.lastUpdate,
+                updated_at: dbToken?.updated_at,
+                apiCoin,
+                raw: ticker
+            };
+        });
+    }, [binancePairs, cryptosBySymbol, dbTokensBySymbol, binanceConnected]);
+
+    const mergedRowsBySymbol = useMemo(() => {
+        const map = {};
+        mergedRows.forEach((row) => {
+            if (row?.symbol) {
+                map[row.symbol] = row;
+            }
+        });
+        return map;
+    }, [mergedRows]);
+
+    const streamingCount = binancePairs.length;
+    const found = mergedRows.filter(row => row.apiPrice !== null).length;
+    const pricesLoading = cryptosLoading;
+    const pricesError = cryptosError;
     
     const [viewMode, setViewMode] = useState('all'); // 'all', 'mismatch', 'noPrice'
     const [selectedTokens, setSelectedTokens] = useState([]);
     const [showPriceDetails, setShowPriceDetails] = useState(false);
+    const [showBinanceSection, setShowBinanceSection] = useState(false);
+    const [showRapidSection, setShowRapidSection] = useState(false);
+    const [showComparisonSection, setShowComparisonSection] = useState(true);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(100);
+    const [binancePage, setBinancePage] = useState(1);
+    const [binancePageSize, setBinancePageSize] = useState(100);
+    const [rapidPage, setRapidPage] = useState(1);
+    const [rapidPageSize, setRapidPageSize] = useState(100);
 
     // Filter tokens based on view mode
-    const getFilteredTokens = () => {
-        return dbTokens.slice(0, 10).map(token => {
-            const priceData = prices[token.symbol];
-            return {
-                ...token,
-                currentPrice: priceData?.price,
-                priceSource: priceData?.source,
-                isStreaming: priceData?.timestamp > Date.now() - 10000 // Recent update
-            };
-        }).filter(token => {
+    const filteredTokens = useMemo(() => {
+        return mergedRows.filter(token => {
             switch(viewMode) {
                 case 'mismatch':
-                    // Show tokens where database price differs from current price
-                    return token.price && token.currentPrice && 
-                           Math.abs(token.price - token.currentPrice) > (token.price * 0.01); // 1% difference
+                    // Show tokens where API price differs from Binance price
+                    return token.apiPrice && token.binancePrice && 
+                           Math.abs(token.apiPrice - token.binancePrice) > (token.apiPrice * 0.01); // 1% difference
                 case 'noPrice':
-                    // Show tokens without current price
-                    return !token.currentPrice;
+                    // Show tokens without matching API price
+                    return !token.apiPrice;
                 default:
                     return true;
             }
         });
-    };
+    }, [mergedRows, viewMode]);
+
+    const totalPages = useMemo(() => {
+        if (pageSize === 0) return 1;
+        return Math.max(1, Math.ceil(filteredTokens.length / pageSize));
+    }, [filteredTokens.length, pageSize]);
+
+    const paginatedTokens = useMemo(() => {
+        if (pageSize === 0) return filteredTokens;
+        const start = (page - 1) * pageSize;
+        return filteredTokens.slice(start, start + pageSize);
+    }, [filteredTokens, page, pageSize]);
+
+    const matchingSymbolsCount = useMemo(() => {
+        const binanceSet = new Set(binancePairs.map(ticker => ticker?.s?.replace(/USDT$/, '')));
+        return cryptoList.filter(coin => binanceSet.has(coin?.symbol?.toUpperCase())).length;
+    }, [binancePairs, cryptoList]);
+
+    const binanceOnlySymbols = useMemo(() => {
+        const rapidSet = new Set(cryptoList.map(coin => coin?.symbol?.toUpperCase()).filter(Boolean));
+        return binancePairs
+            .map(ticker => ticker?.s?.replace(/USDT$/, ''))
+            .filter(Boolean)
+            .filter(symbol => !rapidSet.has(symbol));
+    }, [binancePairs, cryptoList]);
+
+    const rapidOnlySymbols = useMemo(() => {
+        const binanceSet = new Set(binancePairs.map(ticker => ticker?.s?.replace(/USDT$/, '')));
+        return cryptoList
+            .map(coin => coin?.symbol?.toUpperCase())
+            .filter(Boolean)
+            .filter(symbol => !binanceSet.has(symbol));
+    }, [binancePairs, cryptoList]);
+
+    const binanceTotalPages = useMemo(() => {
+        if (binancePageSize === 0) return 1;
+        return Math.max(1, Math.ceil(binancePairs.length / binancePageSize));
+    }, [binancePairs.length, binancePageSize]);
+
+    const binancePaginated = useMemo(() => {
+        if (binancePageSize === 0) return binancePairs;
+        const start = (binancePage - 1) * binancePageSize;
+        return binancePairs.slice(start, start + binancePageSize);
+    }, [binancePairs, binancePage, binancePageSize]);
+
+    const rapidTotalPages = useMemo(() => {
+        if (rapidPageSize === 0) return 1;
+        return Math.max(1, Math.ceil(cryptoList.length / rapidPageSize));
+    }, [cryptoList.length, rapidPageSize]);
+
+    const rapidPaginated = useMemo(() => {
+        if (rapidPageSize === 0) return cryptoList;
+        const start = (rapidPage - 1) * rapidPageSize;
+        return cryptoList.slice(start, start + rapidPageSize);
+    }, [cryptoList, rapidPage, rapidPageSize]);
 
     // Toggle token selection
     const toggleTokenSelection = (symbol) => {
@@ -77,14 +281,15 @@ function AdminPricingManager() {
         
         try {
             const updates = selectedTokens.map(symbol => {
-                const token = dbTokens.find(t => t.symbol === symbol);
-                const priceData = prices[symbol];
+                const token = dbTokensBySymbol[symbol];
+                const row = mergedRowsBySymbol[symbol];
                 return {
                     symbol,
-                    newPrice: priceData?.price,
-                    oldPrice: token?.price
+                    newPrice: row?.binancePrice,
+                    oldPrice: token?.price,
+                    hasDbToken: !!token
                 };
-            }).filter(update => update.newPrice);
+            }).filter(update => update.newPrice && update.hasDbToken);
             
             // Here you would call your API to update prices
             // For now, just log
@@ -109,30 +314,31 @@ function AdminPricingManager() {
                     <h2>Pricing Management</h2>
                     <div className="stats-row">
                         <div className="stat-item">
-                            <span className="stat-label">Database Tokens:</span>
-                            <span className="stat-value">{dbCount}</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Live Prices:</span>
+                            <span className="stat-label">Binance Pairs:</span>
                             <span className={`stat-value ${streamingCount > 0 ? 'streaming' : ''}`}>
-                                {streamingCount}/{topTokens.length} streaming
+                                {streamingCount} USDT pairs
                             </span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-label">Prices Found:</span>
-                            <span className="stat-value">{found}/{topTokens.length}</span>
+                            <span className="stat-label">RapidAPI Coins:</span>
+                            <span className="stat-value">{cryptoList.length}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Symbol Matches:</span>
+                            <span className="stat-value">{matchingSymbolsCount}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Binance-only:</span>
+                            <span className="stat-value">{binanceOnlySymbols.length}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Rapid-only:</span>
+                            <span className="stat-value">{rapidOnlySymbols.length}</span>
                         </div>
                     </div>
                 </div>
                 
                 <div className="header-right">
-                    <button 
-                        onClick={toggleComparisonMode} 
-                        className={`comparison-toggle ${comparisonMode ? 'active' : ''}`}
-                    >
-                        {comparisonMode ? '🔍 Hide DB/JSON' : '🔍 Compare DB/JSON'}
-                    </button>
-                    
                     <button 
                         onClick={() => setShowPriceDetails(!showPriceDetails)}
                         className={`details-toggle ${showPriceDetails ? 'active' : ''}`}
@@ -145,26 +351,25 @@ function AdminPricingManager() {
             {/* Controls */}
             <div className="controls-row">
                 <div className="view-controls">
-                    <select 
-                        value={viewMode} 
-                        onChange={(e) => setViewMode(e.target.value)}
-                        className="view-select"
-                    >
-                        <option value="all">All Tokens</option>
-                        <option value="mismatch">Price Mismatch ({'>'}1%)</option>
-                        <option value="noPrice">No Current Price</option>
-                    </select>
-                    
-                    <div className="selection-info">
-                        {selectedTokens.length} token(s) selected
-                        {selectedTokens.length > 0 && (
-                            <button 
-                                onClick={updateDatabasePrices}
-                                className="update-btn"
-                            >
-                                Update Selected in DB
-                            </button>
-                        )}
+                    <div className="section-toggle-group">
+                        <button
+                            className={`section-toggle ${showBinanceSection ? 'active' : ''}`}
+                            onClick={() => setShowBinanceSection(prev => !prev)}
+                        >
+                            {showBinanceSection ? 'Hide Binance' : 'Show Binance'}
+                        </button>
+                        <button
+                            className={`section-toggle ${showRapidSection ? 'active' : ''}`}
+                            onClick={() => setShowRapidSection(prev => !prev)}
+                        >
+                            {showRapidSection ? 'Hide RapidAPI' : 'Show RapidAPI'}
+                        </button>
+                        <button
+                            className={`section-toggle ${showComparisonSection ? 'active' : ''}`}
+                            onClick={() => setShowComparisonSection(prev => !prev)}
+                        >
+                            {showComparisonSection ? 'Hide Compare' : 'Show Compare'}
+                        </button>
                     </div>
                 </div>
                 
@@ -175,29 +380,204 @@ function AdminPricingManager() {
                 )}
             </div>
 
-            {/* Main Table */}
-            <div className="table-container">
-                <PricingTable 
-                    tokens={getFilteredTokens()}
-                    prices={prices}
-                    selectedTokens={selectedTokens}
-                    onSelectToken={toggleTokenSelection}
-                    showDetails={showPriceDetails}
-                />
-            </div>
+            {/* Binance Section */}
+            {showBinanceSection && (
+                <div className="section">
+                    <div className="section-header">
+                        <h3>Binance USDT Pairs</h3>
+                        <select
+                            value={binancePageSize}
+                            onChange={(e) => {
+                                const nextSize = parseInt(e.target.value, 10);
+                                setBinancePageSize(nextSize);
+                                setBinancePage(1);
+                            }}
+                            className="view-select"
+                        >
+                            <option value={50}>50 / page</option>
+                            <option value={100}>100 / page</option>
+                            <option value={250}>250 / page</option>
+                            <option value={0}>All</option>
+                        </select>
+                    </div>
+                    <div className="table-container">
+                        <BinanceTable pairs={binancePaginated} />
+                    </div>
+
+                    {binancePageSize !== 0 && binanceTotalPages > 1 && (
+                        <div className="pagination-controls">
+                            <button
+                                className="update-btn"
+                                onClick={() => setBinancePage(prev => Math.max(1, prev - 1))}
+                                disabled={binancePage <= 1}
+                            >
+                                Prev
+                            </button>
+                            <span className="pagination-info">
+                                Page {binancePage} of {binanceTotalPages}
+                            </span>
+                            <button
+                                className="update-btn"
+                                onClick={() => setBinancePage(prev => Math.min(binanceTotalPages, prev + 1))}
+                                disabled={binancePage >= binanceTotalPages}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* RapidAPI Section */}
+            {showRapidSection && (
+                <div className="section">
+                    <div className="section-header">
+                        <h3>RapidAPI Coins</h3>
+                        <select
+                            value={rapidPageSize}
+                            onChange={(e) => {
+                                const nextSize = parseInt(e.target.value, 10);
+                                setRapidPageSize(nextSize);
+                                setRapidPage(1);
+                            }}
+                            className="view-select"
+                        >
+                            <option value={50}>50 / page</option>
+                            <option value={100}>100 / page</option>
+                            <option value={250}>250 / page</option>
+                            <option value={0}>All</option>
+                        </select>
+                    </div>
+                    <div className="table-container">
+                        <RapidApiTable coins={rapidPaginated} />
+                    </div>
+
+                    {rapidPageSize !== 0 && rapidTotalPages > 1 && (
+                        <div className="pagination-controls">
+                            <button
+                                className="update-btn"
+                                onClick={() => setRapidPage(prev => Math.max(1, prev - 1))}
+                                disabled={rapidPage <= 1}
+                            >
+                                Prev
+                            </button>
+                            <span className="pagination-info">
+                                Page {rapidPage} of {rapidTotalPages}
+                            </span>
+                            <button
+                                className="update-btn"
+                                onClick={() => setRapidPage(prev => Math.min(rapidTotalPages, prev + 1))}
+                                disabled={rapidPage >= rapidTotalPages}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Comparison Section */}
+            {showComparisonSection && (
+                <div className="section">
+                    <div className="section-header">
+                        <h3>Compare Binance vs RapidAPI</h3>
+                        <div className="compare-controls">
+                            <select 
+                                value={viewMode} 
+                                onChange={(e) => setViewMode(e.target.value)}
+                                className="view-select"
+                            >
+                                <option value="all">All Tokens</option>
+                                <option value="mismatch">Price Mismatch ({'>'}1%)</option>
+                                <option value="noPrice">No API Match</option>
+                            </select>
+
+                            <select
+                                value={pageSize}
+                                onChange={(e) => {
+                                    const nextSize = parseInt(e.target.value, 10);
+                                    setPageSize(nextSize);
+                                    setPage(1);
+                                }}
+                                className="view-select"
+                            >
+                                <option value={50}>50 / page</option>
+                                <option value={100}>100 / page</option>
+                                <option value={250}>250 / page</option>
+                                <option value={0}>All</option>
+                            </select>
+
+                            <div className="selection-info">
+                                {selectedTokens.length} token(s) selected
+                                {selectedTokens.length > 0 && (
+                                    <button 
+                                        onClick={updateDatabasePrices}
+                                        className="update-btn"
+                                    >
+                                        Update Selected in DB
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="table-container">
+                        <PricingTable 
+                            tokens={paginatedTokens}
+                            selectedTokens={selectedTokens}
+                            onSelectToken={toggleTokenSelection}
+                            wsConnected={binanceConnected}
+                        />
+                    </div>
+
+                    {pageSize !== 0 && totalPages > 1 && (
+                        <div className="pagination-controls">
+                            <button
+                                className="update-btn"
+                                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                                disabled={page <= 1}
+                            >
+                                Prev
+                            </button>
+                            <span className="pagination-info">
+                                Page {page} of {totalPages}
+                            </span>
+                            <button
+                                className="update-btn"
+                                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={page >= totalPages}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="section-split">
+                        <div className="table-container">
+                            <h4>Binance Pairs Missing in RapidAPI</h4>
+                            <SymbolListTable symbols={binanceOnlySymbols} />
+                        </div>
+
+                        <div className="table-container">
+                            <h4>RapidAPI Coins Missing in Binance</h4>
+                            <SymbolListTable symbols={rapidOnlySymbols} />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Price Stats */}
             {showPriceDetails && (
                 <div className="price-stats">
                     <h3>Price Statistics</h3>
                     <div className="stats-grid">
-                        {Object.entries(prices).map(([symbol, data]) => (
-                            <div key={symbol} className="price-stat-card">
-                                <div className="stat-symbol">{symbol}</div>
-                                <div className="stat-price">${data.price?.toFixed(2)}</div>
-                                <div className={`stat-source ${data.source}`}>{data.source}</div>
+                        {mergedRows.slice(0, 50).map((row) => (
+                            <div key={row.pair} className="price-stat-card">
+                                <div className="stat-symbol">{row.pair}</div>
+                                <div className="stat-price">${row.binancePrice?.toFixed(4)}</div>
+                                <div className="stat-source">binance</div>
                                 <div className="stat-time">
-                                    {new Date(data.timestamp).toLocaleTimeString()}
+                                    {binanceConnected ? 'LIVE' : 'Connecting...'}
                                 </div>
                             </div>
                         ))}
@@ -209,40 +589,39 @@ function AdminPricingManager() {
 }
 
 // Pricing Table Component
-function PricingTable({ tokens, prices, selectedTokens, onSelectToken, showDetails }) {
+function PricingTable({ tokens, selectedTokens, onSelectToken, wsConnected }) {
     return (
         <table className="pricing-table">
             <thead>
                 <tr>
                     <th></th>
+                    <th>Pair</th>
                     <th>Symbol</th>
                     <th>Name</th>
-                    <th>Database Price</th>
-                    <th>Current Price</th>
+                    <th>RapidAPI Price</th>
+                    <th>Binance WS Price</th>
                     <th>Source</th>
                     <th>Difference</th>
+                    <th>WS Active</th>
                     <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {tokens.map(token => {
-                    const priceData = prices[token.symbol];
-                    const dbPrice = token.price;
-                    const currentPrice = priceData?.price;
-                    const difference = dbPrice && currentPrice ? 
-                        ((currentPrice - dbPrice) / dbPrice * 100).toFixed(2) : null;
+                    const apiPrice = token.apiPrice;
+                    const binancePrice = token.binancePrice;
+                    const difference = apiPrice && binancePrice ? 
+                        ((binancePrice - apiPrice) / apiPrice * 100).toFixed(2) : null;
                     
                     return (
                         <PricingRow 
-                            key={token.symbol}
+                            key={token.pair}
                             token={token}
-                            dbPrice={dbPrice}
-                            currentPrice={currentPrice}
-                            priceData={priceData}
+                            apiPrice={apiPrice}
+                            binancePrice={binancePrice}
                             difference={difference}
                             isSelected={selectedTokens.includes(token.symbol)}
                             onSelect={() => onSelectToken(token.symbol)}
-                            showDetails={showDetails}
                         />
                     );
                 })}
@@ -252,21 +631,24 @@ function PricingTable({ tokens, prices, selectedTokens, onSelectToken, showDetai
 }
 
 // Pricing Row Component
-function PricingRow({ token, dbPrice, currentPrice, priceData, difference, isSelected, onSelect, showDetails }) {
+function PricingRow({ token, apiPrice, binancePrice, difference, isSelected, onSelect }) {
     const getRowClass = () => {
-        if (!currentPrice) return 'no-price';
+        if (token.isStale) return 'stale';
+        if (!apiPrice) return 'no-price';
         if (difference && Math.abs(difference) > 1) return 'mismatch';
-        if (priceData?.timestamp > Date.now() - 10000) return 'streaming';
+        if (token.isStreaming) return 'streaming';
         return '';
     };
 
     const getStatusBadge = () => {
-        if (!currentPrice) return { text: 'No Price', class: 'error' };
-        if (priceData?.timestamp > Date.now() - 10000) return { text: '● LIVE', class: 'live' };
+        if (token.isStale) return { text: '🔄 STALE', class: 'stale' };
+        if (!apiPrice) return { text: 'No API Match', class: 'error' };
+        if (token.isStreaming) return { text: '● LIVE', class: 'live' };
         return { text: 'Cached', class: 'cached' };
     };
 
     const status = getStatusBadge();
+    const wsActive = token.isStreaming && !token.isStale;
 
     return (
         <tr className={`${getRowClass()} ${isSelected ? 'selected' : ''}`}>
@@ -275,34 +657,27 @@ function PricingRow({ token, dbPrice, currentPrice, priceData, difference, isSel
                     type="checkbox"
                     checked={isSelected}
                     onChange={onSelect}
-                    disabled={!currentPrice}
+                    disabled={!binancePrice || !token.hasDbToken}
                 />
+            </td>
+            <td className="pair-cell">
+                <strong>{token.pair}</strong>
             </td>
             <td className="symbol-cell">
                 <strong>{token.symbol}</strong>
             </td>
             <td>{token.name}</td>
-            
-            {/* Database Price */}
-            <td className="db-price-cell">
-                {dbPrice ? `$${dbPrice.toFixed(2)}` : '—'}
-                {dbPrice && token.updated_at && (
-                    <div className="price-meta">
-                        Updated: {new Date(token.updated_at).toLocaleDateString()}
-                    </div>
-                )}
+
+            {/* API Price */}
+            <td className="api-price-cell">
+                {apiPrice ? `$${apiPrice.toFixed(4)}` : '—'}
             </td>
             
-            {/* Current Price */}
+            {/* Binance Price */}
             <td className="current-price-cell">
-                {currentPrice ? (
+                {binancePrice ? (
                     <div>
-                        <div className="price-value">${currentPrice.toFixed(2)}</div>
-                        {showDetails && priceData && (
-                            <div className="price-meta">
-                                {new Date(priceData.timestamp).toLocaleTimeString()}
-                            </div>
-                        )}
+                        <div className="price-value">${binancePrice.toFixed(4)}</div>
                     </div>
                 ) : (
                     <span className="no-price-text">—</span>
@@ -311,13 +686,7 @@ function PricingRow({ token, dbPrice, currentPrice, priceData, difference, isSel
             
             {/* Source */}
             <td className="source-cell">
-                {priceData?.source ? (
-                    <span className={`source-badge ${priceData.source}`}>
-                        {priceData.source}
-                    </span>
-                ) : (
-                    <span className="source-badge unknown">Unknown</span>
-                )}
+                <span className="source-badge binance">binance</span>
             </td>
             
             {/* Difference */}
@@ -328,9 +697,15 @@ function PricingRow({ token, dbPrice, currentPrice, priceData, difference, isSel
                     </span>
                 ) : '—'}
             </td>
+
+            <td className="ws-status-cell compact-cell">
+                <span className={`ws-badge ${wsActive ? 'active' : 'inactive'}`}>
+                    {wsActive ? 'WS Active' : 'WS Inactive'}
+                </span>
+            </td>
             
             {/* Status */}
-            <td className="status-cell">
+            <td className="status-cell compact-cell">
                 <span className={`status-badge ${status.class}`}>
                     {status.text}
                 </span>
@@ -340,3 +715,97 @@ function PricingRow({ token, dbPrice, currentPrice, priceData, difference, isSel
 }
 
 export default AdminPricingManager;
+
+function BinanceTable({ pairs }) {
+    return (
+        <table className="pricing-table">
+            <thead>
+                <tr>
+                    <th>Pair</th>
+                    <th>Symbol</th>
+                    <th>Price</th>
+                    <th>24h Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                {pairs.map((ticker) => {
+                    const pair = ticker.s;
+                    const symbol = pair.replace(/USDT$/, '');
+                    const last = parseFloat(ticker.c || 0);
+                    const open = parseFloat(ticker.o || 0);
+                    const change = open ? ((last - open) / open) * 100 : 0;
+
+                    return (
+                        <tr key={pair}>
+                            <td className="pair-cell"><strong>{pair}</strong></td>
+                            <td className="symbol-cell"><strong>{symbol}</strong></td>
+                            <td>${last.toFixed(4)}</td>
+                            <td className={change >= 0 ? 'positive' : 'negative'}>
+                                {change >= 0 ? '▲' : '▼'} {Math.abs(change).toFixed(2)}%
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    );
+}
+
+function RapidApiTable({ coins }) {
+    return (
+        <table className="pricing-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Rank</th>
+                    <th>Market Cap</th>
+                    <th>24h Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                {coins.map((coin) => {
+                    const symbol = coin?.symbol?.toUpperCase();
+                    const price = coin?.price ? parseFloat(coin.price) : null;
+                    const change = coin?.change ? parseFloat(coin.change) : null;
+                    const marketCap = coin?.marketCap ? parseFloat(coin.marketCap) : null;
+
+                    return (
+                        <tr key={coin.uuid || symbol}>
+                            <td className="symbol-cell"><strong>{symbol}</strong></td>
+                            <td>{coin?.name || symbol}</td>
+                            <td>{price ? `$${price.toFixed(4)}` : '—'}</td>
+                            <td>{coin?.rank || '—'}</td>
+                            <td>{marketCap ? `$${marketCap.toLocaleString()}` : '—'}</td>
+                            <td className={change >= 0 ? 'positive' : 'negative'}>
+                                {change !== null ? `${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%` : '—'}
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    );
+}
+
+function SymbolListTable({ symbols }) {
+    return (
+        <table className="pricing-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>USDT Pair</th>
+                </tr>
+            </thead>
+            <tbody>
+                {symbols.map((symbol) => (
+                    <tr key={symbol}>
+                        <td className="symbol-cell"><strong>{symbol}</strong></td>
+                        <td>{symbol}USDT</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}

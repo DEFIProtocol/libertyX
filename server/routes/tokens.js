@@ -8,8 +8,6 @@ module.exports = (pool) => {
     // Helper function to read JSON file
     const getJsonTokens = async () => {
     try {
-        console.log('📁 Attempting to read JSON file...');
-        
         // Try different paths - one of these should work
         const possiblePaths = [
             path.join(__dirname, '../tokens_smart_consolidated.json'),
@@ -28,14 +26,11 @@ module.exports = (pool) => {
         // Try each path
         for (const jsonPath of possiblePaths) {
             try {
-                console.log(`  Trying path: ${jsonPath}`);
                 fileData = await fs.readFile(jsonPath, 'utf-8');
                 successfulPath = jsonPath;
-                console.log(`✅ Found file at: ${jsonPath}`);
                 break;
             } catch (err) {
                 // Continue to next path
-                console.log(`  ❌ Not found: ${jsonPath}`);
             }
         }
         
@@ -44,7 +39,6 @@ module.exports = (pool) => {
         }
         
         const tokens = JSON.parse(fileData);
-        console.log(`✅ Successfully parsed ${tokens.length} tokens from JSON file`);
         return tokens;
         
     } catch (error) {

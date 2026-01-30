@@ -1,80 +1,67 @@
 // AdminDashboard.jsx - With Tabs
 import './AdminAccess.css';
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import AdminTokenManager from './AdminTokenManager';
 import { useTokens } from '../../contexts/TokenContext';
-import { useGetCryptosQuery } from '../../hooks';
+import { useBinanceWs } from '../../contexts/BinanceWsContext';
+import { useGlobalPriceTokens } from '../../hooks/useGlobalPriceTokens';
 import AdminPricingManager from './AdminPricingManager';
 
 function AdminDashboard({ onLogout }) {
-    const { 
-        displayTokens: contextTokens,
-        dbCount, 
-        jsonCount, 
-        errorDb, 
-        errorJson, 
-        comparisonMode 
+    const [activeTab, setActiveTab] = useState('tokens');
+
+    const {
+        comparisonData,
+        comparisonMode,
+        errorDb,
+        errorJson,
+        dbCount,
+        jsonCount
     } = useTokens();
-    
-    const [activeTab, setActiveTab] = useState('tokens'); // 'tokens' or 'pricing'
-    
-    // Get market data same way as Tokens.js
-    const { 
-        data: marketData, 
-        isFetching: loadingMarket 
-    } = useGetCryptosQuery(1200);
-    
-    // Extract coins array from market data
-    const marketCoins = useMemo(() => {
-        return marketData?.data?.coins || [];
-    }, [marketData]);
-    
-    // Enrich tokens with market data - same pattern as Tokens.js
+
+    const { latestData } = useBinanceWs();
+    const {
+        tokens: baseTokens,
+        loading: loadingMarket
+    } = useGlobalPriceTokens();
+
+    const binanceBySymbol = useMemo(() => {
+        const map = {};
+        if (Array.isArray(latestData)) {
+            latestData.forEach((ticker) => {
+                if (ticker?.s && ticker?.c && ticker.s.endsWith('USDT')) {
+                    const base = ticker.s.replace(/USDT$/i, '').toUpperCase();
+                    map[base] = ticker;
+                }
+            });
+        }
+        return map;
+    }, [latestData]);
+
     const enrichedTokens = useMemo(() => {
-        if (!contextTokens) return [];
-        
-        return contextTokens.map(token => {
-            // Handle comparison mode vs normal mode
-            let tokenData;
-            if (comparisonMode) {
-                tokenData = token.database || token.json;
-            } else {
-                tokenData = token;
-            }
-            
-            if (!tokenData) return null;
-            
-            // Filter out tokens without uuid
-            if (!tokenData.uuid) return null;
-            
-            // Find matching market coin
-            const fullMarketCoin = marketCoins.find(coin => coin.uuid === tokenData.uuid);
-            
+        if (!Array.isArray(baseTokens)) return [];
+
+        return baseTokens.map((token) => {
+            const symbol = token?.symbol?.toUpperCase();
+            const binanceTicker = symbol ? binanceBySymbol[symbol] : null;
+
+            const binancePrice = binanceTicker?.c ? parseFloat(binanceTicker.c) : null;
+            const resolvedPrice = binancePrice ?? (token?.price ? parseFloat(token.price) : null);
+            const change = binanceTicker?.P ? parseFloat(binanceTicker.P) : (token?.change ? parseFloat(token.change) : null);
+
             return {
-                // Base token data
-                ...tokenData,
-                uuid: tokenData.uuid,
-                symbol: tokenData.symbol || token.symbol,
-                name: tokenData.name || token.symbol,
-                image: tokenData.image,
-                addresses: tokenData.addresses,
-                type: tokenData.type,
-                decimals: tokenData.decimals,
-                
-                // Price data from market data
-                price: fullMarketCoin?.price || tokenData.price || '0',
-                marketCap: fullMarketCoin?.marketCap || tokenData.market_cap || '0',
-                change: fullMarketCoin?.change || '0',
-                rank: fullMarketCoin?.rank || 9999,
-                
-                // For comparison mode
-                inDatabase: comparisonMode ? token.inDatabase : true,
-                inJson: comparisonMode ? token.inJson : false,
-                isMatch: comparisonMode ? token.match : true
+                ...token,
+                symbol,
+                price: resolvedPrice !== null ? resolvedPrice.toString() : token.price?.toString() || '0',
+                marketCap: token.marketCap?.toString() || token.market_cap?.toString() || '0',
+                change: change !== null ? change.toString() : '0',
+                source: binancePrice !== null ? 'binance' : (token.priceSource || token.source || 'store')
             };
-        }).filter(token => token !== null);
-    }, [contextTokens, marketCoins, comparisonMode]);
-    
+        });
+    }, [baseTokens, binanceBySymbol]);
+
+    const displayTokens = comparisonMode ? (comparisonData || []) : enrichedTokens;
+
     return (
         <div className="admin-container">
             <div className="admin-dashboard">
@@ -135,7 +122,7 @@ function AdminDashboard({ onLogout }) {
                 <div className="admin-content">
                     {activeTab === 'tokens' ? (
                         <div className="admin-card full-width">
-                            <AdminTokenManager tokens={enrichedTokens} isLoading={loadingMarket} />
+                            <AdminTokenManager tokens={displayTokens} isLoading={loadingMarket} />
                         </div>
                     ) : (
                         <div className="admin-card full-width">

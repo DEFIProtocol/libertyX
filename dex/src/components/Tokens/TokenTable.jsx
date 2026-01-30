@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGetCryptosQuery } from '../../hooks';
 import './token-table.css';
 
 function TokenTable({ tokens = [] }) {
@@ -8,15 +7,6 @@ function TokenTable({ tokens = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
-  
-  // Get market data to validate tokens exist
-  const { data: marketData } = useGetCryptosQuery(1200);
-  
-  // Extract market coins symbols for validation
-  const marketSymbols = useMemo(() => {
-    const coins = marketData?.data?.coins || [];
-    return new Set(coins.map(coin => coin.symbol?.toUpperCase()));
-  }, [marketData]);
   
   // Helper to get sortable value
   const getSortValue = (token, key) => {
@@ -39,11 +29,6 @@ function TokenTable({ tokens = [] }) {
   // Filter and sort tokens
   const filteredAndSortedTokens = useMemo(() => {
     let filtered = tokens.filter(token => {
-      // Check if token symbol exists in market data
-      if (!marketSymbols.has(token.symbol?.toUpperCase())) {
-        return false;
-      }
-      
       const term = searchTerm.toLowerCase();
       return (
         token.symbol?.toLowerCase().includes(term) ||
@@ -66,7 +51,7 @@ function TokenTable({ tokens = [] }) {
     });
 
     return sorted;
-  }, [tokens, searchTerm, sortConfig, marketSymbols]);
+  }, [tokens, searchTerm, sortConfig]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -97,10 +82,6 @@ function TokenTable({ tokens = [] }) {
       newExpanded.add(tokenKey);
     }
     setExpandedRows(newExpanded);
-  };
-
-  const handleTokenClick = (uuid) => {
-    navigate(`/token/${uuid}`);
   };
 
   return (
@@ -188,7 +169,7 @@ function TokenTable({ tokens = [] }) {
                   {/* Expanded Details */}
                   {token.uuid && expandedRows.has(token.uuid) && (
                     <tr className="details-row">
-                      <td colSpan="5">
+                      <td colSpan="4">
                         <div className="token-details-expanded">
                           <div className="details-grid">
                             <div className="detail-item">

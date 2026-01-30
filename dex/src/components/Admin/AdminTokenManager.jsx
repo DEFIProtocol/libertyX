@@ -1,7 +1,7 @@
 // AdminTokenManager.jsx - Optimized version
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTokens } from '../../contexts/TokenContext';
-import { useGetCryptosQuery, useTokenCrud } from '../../hooks';
+import { useTokenCrud } from '../../hooks';
 import '../Tokens/token-table.css';
 import './AdminTokenManager.css';
 
@@ -36,16 +36,6 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
         jsonCount,
         dbTokens
     } = useTokens();
-    
-    // Get market data
-    const { data: marketData } = useGetCryptosQuery(1200);
-    console.log('Market Data:', marketData?.data?.coins);
-    
-    // Extract market symbols
-    const marketSymbols = useMemo(() => {
-        if (!marketData?.data?.coins) return new Set();
-        return new Set(marketData.data.coins.map(coin => coin.symbol?.toUpperCase()));
-    }, [marketData]);
     
     // State
     const [selectedTokens, setSelectedTokens] = useState([]);
@@ -82,7 +72,6 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
     // Optimized filter and sort
     const filteredAndSortedTokens = useMemo(() => {
         if (!tokens.length) return [];
-        if (!debouncedSearchTerm && !marketSymbols.size) return tokens.slice(0, 100); // Limit initial load
         
         let filtered;
         
@@ -91,17 +80,13 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
             filtered = [];
             for (let i = 0; i < Math.min(tokens.length, 1000); i++) {
                 const token = tokens[i];
-                if (!token.uuid || !marketSymbols.has(token.symbol?.toUpperCase())) continue;
-                
                 if (token.symbol?.toLowerCase().includes(term) || 
                     token.name?.toLowerCase().includes(term)) {
                     filtered.push(token);
                 }
             }
         } else {
-            filtered = tokens.slice(0, 200).filter(token => 
-                token.uuid && marketSymbols.has(token.symbol?.toUpperCase())
-            );
+            filtered = tokens.slice(0, 200);
         }
         
         // Sort if needed
@@ -115,7 +100,7 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
         }
         
         return filtered;
-    }, [tokens, debouncedSearchTerm, sortConfig, marketSymbols, getSortValue]);
+    }, [tokens, debouncedSearchTerm, sortConfig, getSortValue]);
 
     const dbTokenBySymbol = useMemo(() => {
         const map = new Map();

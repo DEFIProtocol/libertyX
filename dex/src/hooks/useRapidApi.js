@@ -4,50 +4,6 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api/rapidapi';
 
 /**
- * useGetCryptosQuery - Get all coins with optional limit
- * Matches the Redux RTK Query pattern from previous implementation
- * Auto-fetches on mount and provides refetch capability
- */
-export const useGetCryptosQuery = (count = 1200) => {
-    const [data, setData] = useState(null);
-    const [isFetching, setIsFetching] = useState(true);
-    const [error, setError] = useState(null);
-
-    const fetchCryptos = useCallback(async () => {
-        try {
-            setIsFetching(true);
-            setError(null);
-            
-            const response = await axios.get(`${API_BASE_URL}/coins`, {
-                params: { limit: count }
-            });
-            
-            if (response.data.success) {
-                setData(response.data);
-            } else {
-                setError(response.data.error || 'Failed to fetch cryptos');
-            }
-        } catch (err) {
-            console.error('Error fetching cryptos:', err);
-            setError(err.response?.data?.error || err.message || 'Failed to fetch cryptos');
-        } finally {
-            setIsFetching(false);
-        }
-    }, [count]);
-
-    useEffect(() => {
-        fetchCryptos();
-    }, [fetchCryptos]);
-
-    return { 
-        data, 
-        isFetching, 
-        error,
-        refetch: fetchCryptos
-    };
-};
-
-/**
  * useGetCryptoDetailsQuery - Get specific coin details
  * Matches the Redux RTK Query pattern from previous implementation
  * Auto-fetches when coinId changes

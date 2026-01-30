@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 // Create rate limiter for RapidAPI endpoints
 const rapidApiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 50, // Limit each IP to 50 requests per windowMs
+  max: 500, // Relaxed limit to avoid blocking
   message: {
     success: false,
     error: 'Too many requests, please try again later.'

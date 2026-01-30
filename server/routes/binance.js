@@ -286,6 +286,69 @@ router.get('/exchange-info', async (req, res) => {
     }
 });
 
+// 24hr ticker snapshot (REST)
+router.get('/ticker/24hr', async (req, res) => {
+    try {
+        await binanceLimiter.waitIfNeeded();
+
+        const { symbol } = req.query;
+        const response = await axios.get(`${BINANCE_BASE_URL}/ticker/24hr`, {
+            params: symbol ? { symbol: symbol.toUpperCase() } : undefined
+        });
+
+        res.json({
+            success: true,
+            data: response.data,
+            timestamp: Date.now(),
+            source: 'binance'
+        });
+    } catch (error) {
+        console.error('Binance 24hr ticker error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Get all current prices (REST snapshot)
+router.get('/all-prices', async (req, res) => {
+    try {
+        console.log('📊 Fetching ALL Binance prices via REST...');
+        await binanceLimiter.waitIfNeeded();
+
+        const response = await axios.get(`${BINANCE_BASE_URL}/ticker/price`);
+        const list = Array.isArray(response.data) ? response.data : [];
+
+        const prices = {};
+        let usdtCount = 0;
+
+        for (const item of list) {
+            const symbolPair = item?.symbol;
+            if (!symbolPair || !symbolPair.endsWith('USDT')) continue;
+            usdtCount += 1;
+            const base = symbolPair.replace(/USDT$/, '');
+            prices[base] = {
+                price: parseFloat(item.price),
+                pair: symbolPair,
+                source: 'rest',
+                timestamp: Date.now()
+            };
+        }
+
+        res.json({
+            exchange: 'binance.us',
+            totalPairs: usdtCount,
+            fetched: Object.keys(prices).length,
+            prices,
+            timestamp: Date.now()
+        });
+    } catch (error) {
+        console.error('Binance all-prices error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Simple symbol check
 router.get('/check/:symbol', async (req, res) => {
     try {
