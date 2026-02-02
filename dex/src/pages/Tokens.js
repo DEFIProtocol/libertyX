@@ -1,11 +1,15 @@
 import React, { useMemo } from 'react';
 import { useBinanceWs } from '../contexts/BinanceWsContext';
+import { useChainContext } from '../contexts/ChainContext';
+import { useTokens } from '../contexts/TokenContext';
 import { useGlobalPriceTokens } from '../hooks/useGlobalPriceTokens';
 import TokenTable from '../components/Tokens/TokenTable';
 import './Tokens.css';
 
 function Tokens() {
   const { isConnected: wsConnected, latestData } = useBinanceWs();
+  const { selectedChain, getChainLabel } = useChainContext();
+  const { dbTokens } = useTokens();
   const {
     tokens: baseTokens,
     loading: loadingTokens,
@@ -49,6 +53,39 @@ function Tokens() {
     }).filter(token => token !== null);
   }, [baseTokens, binanceBySymbol]);
 
+  const chainTokenCount = useMemo(() => {
+    const chainKeyMap = {
+      '1': ['ethereum'],
+      '56': ['bnb', 'bsc'],
+      '137': ['polygon'],
+      '43114': ['avalanche'],
+      '42161': ['arbitrum'],
+      '501': ['solana']
+    };
+
+    const normalizeChains = (rawChains) => {
+      if (!rawChains) return {};
+      if (typeof rawChains === 'string') {
+        try {
+          return JSON.parse(rawChains);
+        } catch (e) {
+          return {};
+        }
+      }
+      return rawChains || {};
+    };
+
+    const sourceTokens = (Array.isArray(dbTokens) && dbTokens.length) ? dbTokens : combinedTokens;
+    const chainKey = String(selectedChain || '');
+    const aliasKeys = chainKeyMap[chainKey] || [];
+
+    return (sourceTokens || []).filter((token) => {
+      if (!token?.uuid) return false;
+      const chains = normalizeChains(token?.chains);
+      return !!(chains?.[chainKey] || aliasKeys.some((key) => chains?.[key]));
+    }).length;
+  }, [dbTokens, combinedTokens, selectedChain]);
+
   
   // Refresh all data
   const handleRefreshAll = async () => {
@@ -70,8 +107,13 @@ function Tokens() {
         <div>
           <h1>Tokens</h1>
           <p className="subtitle">
-            {isLoading ? 'Loading...' : `${combinedTokens.length} tokens with real-time prices`}
+            {isLoading
+              ? 'Loading...'
+              : `Current Chain: ${getChainLabel?.(selectedChain) || selectedChain} (${chainTokenCount})`}
           </p>
+          {!isLoading && (
+            <p className="subtitle">Switch chains for different tokens!</p>
+          )}
         </div>
         
         <div className="header-actions">

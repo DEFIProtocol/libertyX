@@ -42,12 +42,14 @@ app.use(express.json());
 // Import routes
 const tokensRoutes = require('./routes/tokens')(pool);
 const binanceRoutes = require('./routes/binance');
+const cryptoRoutes = require('./routes/cryptoRoutes');
 const oneInchRoutes = require('./routes/oneinch');
 const globalPricesRoutes = require('./routes/globalPrices');
 
 // API Routes
 app.use('/api/tokens', tokensRoutes);
 app.use('/api/binance', binanceRoutes);
+app.use('/api/crypto', cryptoRoutes);
 app.use('/api/oneinch', oneInchRoutes);
 app.use('/api/global-prices', globalPricesRoutes(pool));
 

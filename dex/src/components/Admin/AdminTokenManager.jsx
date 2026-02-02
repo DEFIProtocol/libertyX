@@ -63,6 +63,10 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
     const [oneInchStatus, setOneInchStatus] = useState('');
     const [oneInchErrorMessage, setOneInchErrorMessage] = useState('');
     const [isAddingFromOneInch, setIsAddingFromOneInch] = useState(false);
+    const [isBulkAddingFromOneInch, setIsBulkAddingFromOneInch] = useState(false);
+    const [isBulkDeletingTokens, setIsBulkDeletingTokens] = useState(false);
+    const [bulkDeleteStatus, setBulkDeleteStatus] = useState('');
+    const [bulkDeleteError, setBulkDeleteError] = useState('');
     const [isDeletingFromDb, setIsDeletingFromDb] = useState(false);
     const [comparisonExpandedRows, setComparisonExpandedRows] = useState(new Set());
     const [autoEditRows, setAutoEditRows] = useState(new Set());
@@ -173,6 +177,16 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
             );
         }).slice(0, 500);
     }, [oneInchTokens, oneInchSearch]);
+
+    const pruneCandidateCount = useMemo(() => {
+        return (dbTokens || []).filter((token) => {
+            const symbol = token?.symbol?.toUpperCase();
+            if (!symbol) return false;
+            const rapidCoin = rapidBySymbol[symbol];
+            const hasUuid = !!rapidCoin?.uuid;
+            return !hasUuid;
+        }).length;
+    }, [dbTokens, rapidBySymbol]);
 
     const dbOneInchFiltered = useMemo(() => {
         const term = dbOneInchSearch.trim().toLowerCase();
@@ -358,6 +372,104 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
         }
     }, [createToken, updateToken, oneInchBySymbol, rapidBySymbol, refreshAll, dbTokenBySymbol, oneInchChainKey, chainId]);
 
+    const handleAddAllFromOneInch = useCallback(async (tokensToAdd) => {
+        const list = Array.isArray(tokensToAdd) ? tokensToAdd : [];
+        if (!list.length) {
+            setOneInchStatus('No 1inch tokens to add.');
+            return;
+        }
+
+        setOneInchErrorMessage('');
+        setOneInchStatus('');
+
+        let added = 0;
+        let updated = 0;
+        let skippedNoUuid = 0;
+        let skippedNoAddress = 0;
+        let failed = 0;
+
+        const normalizeChains = (rawChains) => {
+            if (!rawChains) return {};
+            if (typeof rawChains === 'string') {
+                try {
+                    return JSON.parse(rawChains);
+                } catch (e) {
+                    return {};
+                }
+            }
+            return rawChains || {};
+        };
+
+        try {
+            setIsBulkAddingFromOneInch(true);
+
+            for (const token of list) {
+                const symbol = token?.symbol?.toUpperCase();
+                if (!symbol) continue;
+
+                const rapidCoin = rapidBySymbol[symbol];
+                if (!rapidCoin?.uuid) {
+                    skippedNoUuid += 1;
+                    continue;
+                }
+
+                const address = token?.address;
+                if (!address) {
+                    skippedNoAddress += 1;
+                    continue;
+                }
+
+                const existingDbToken = dbTokenBySymbol.get(symbol.toLowerCase());
+                const existingChains = normalizeChains(existingDbToken?.chains);
+
+                const payload = {
+                    symbol,
+                    name: token?.name || rapidCoin?.name || symbol,
+                    price: rapidCoin?.price || 0,
+                    market_cap: rapidCoin?.marketCap || 0,
+                    volume_24h: rapidCoin?.volume24h || 0,
+                    decimals: token?.decimals,
+                    type: token?.type || '1inch',
+                    image: rapidCoin?.iconUrl,
+                    uuid: rapidCoin?.uuid,
+                    rapidapi_data: rapidCoin,
+                    oneinch_data: token,
+                    chains: {
+                        ...(existingChains || {}),
+                        [oneInchChainKey]: address
+                    }
+                };
+
+                const result = existingDbToken
+                    ? await updateToken(symbol, payload)
+                    : await createToken(payload);
+
+                if (result.success) {
+                    if (existingDbToken) {
+                        updated += 1;
+                    } else {
+                        added += 1;
+                    }
+                } else {
+                    failed += 1;
+                }
+            }
+
+            if (added || updated || skippedNoUuid || skippedNoAddress || failed) {
+                setOneInchStatus(
+                    `Bulk add complete. Added ${added}, updated ${updated}, skipped (no UUID) ${skippedNoUuid}, skipped (no address) ${skippedNoAddress}, failed ${failed}.`
+                );
+                refreshAll();
+            } else {
+                setOneInchStatus('No eligible tokens to add.');
+            }
+        } catch (error) {
+            setOneInchErrorMessage(error.message || 'Bulk add failed');
+        } finally {
+            setIsBulkAddingFromOneInch(false);
+        }
+    }, [createToken, updateToken, rapidBySymbol, refreshAll, dbTokenBySymbol, oneInchChainKey]);
+
     const handleDeleteFromDb = useCallback(async (symbol) => {
         const normalized = symbol?.toUpperCase().trim();
         if (!normalized) return;
@@ -380,6 +492,56 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
             setIsDeletingFromDb(false);
         }
     }, [deleteToken, refreshAll]);
+
+    const handlePruneDbTokens = useCallback(async () => {
+        const shouldProceed = window.confirm(
+            'This will delete ALL DB tokens that do not have a RapidAPI UUID. Continue?'
+        );
+        if (!shouldProceed) return;
+
+        setBulkDeleteStatus('');
+        setBulkDeleteError('');
+
+        let deleted = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        try {
+            setIsBulkDeletingTokens(true);
+
+            for (const token of dbTokens || []) {
+                const symbol = token?.symbol?.toUpperCase();
+                if (!symbol) {
+                    skipped += 1;
+                    continue;
+                }
+
+                const rapidCoin = rapidBySymbol[symbol];
+                const hasUuid = !!rapidCoin?.uuid;
+
+                if (hasUuid) {
+                    skipped += 1;
+                    continue;
+                }
+
+                const result = await deleteToken(symbol);
+                if (result.success) {
+                    deleted += 1;
+                } else {
+                    failed += 1;
+                }
+            }
+
+            setBulkDeleteStatus(
+                `Prune complete. Deleted ${deleted}, skipped ${skipped}, failed ${failed}.`
+            );
+            refreshAll();
+        } catch (error) {
+            setBulkDeleteError(error.message || 'Bulk delete failed');
+        } finally {
+            setIsBulkDeletingTokens(false);
+        }
+    }, [dbTokens, rapidBySymbol, oneInchBySymbol, deleteToken, refreshAll]);
 
     if (loadingAll) {
         return <div className="loading">Loading token data...</div>;
@@ -421,8 +583,10 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
                     oneInchBySymbol={oneInchBySymbol}
                     rapidBySymbol={rapidBySymbol}
                     onAddFromOneInch={handleAddFromOneInch}
+                    onAddAllFromOneInch={handleAddAllFromOneInch}
                     onDeleteFromDb={handleDeleteFromDb}
                     isAddingFromOneInch={isAddingFromOneInch}
+                    isBulkAddingFromOneInch={isBulkAddingFromOneInch}
                     isDeletingFromDb={isDeletingFromDb}
                     oneInchStatus={oneInchStatus}
                     oneInchErrorMessage={oneInchErrorMessage}
@@ -460,6 +624,11 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
                     jsonCount={jsonCount}
                     onOpenOneInch={() => setOneInchCompareMode(true)}
                     onRefresh={refreshAll}
+                    onPruneDbTokens={handlePruneDbTokens}
+                    isBulkDeletingTokens={isBulkDeletingTokens}
+                    pruneCandidateCount={pruneCandidateCount}
+                    bulkDeleteStatus={bulkDeleteStatus}
+                    bulkDeleteError={bulkDeleteError}
                 />
             )}
         </div>
@@ -489,7 +658,12 @@ const NormalView = React.memo(function NormalView({
     dbCount,
     jsonCount,
     onOpenOneInch,
-    onRefresh
+    onRefresh,
+    onPruneDbTokens,
+    isBulkDeletingTokens,
+    pruneCandidateCount,
+    bulkDeleteStatus,
+    bulkDeleteError
 }) {
     const handleSearchChange = useCallback((e) => {
         setSearchTerm(e.target.value);
@@ -518,6 +692,13 @@ const NormalView = React.memo(function NormalView({
                         ➕ Add Token
                     </button>
                     <button
+                        onClick={onPruneDbTokens}
+                        className="danger-btn"
+                        disabled={isBulkDeletingTokens || pruneCandidateCount === 0}
+                    >
+                        {isBulkDeletingTokens ? '🗑️ Pruning...' : '🗑️ Prune DB'}
+                    </button>
+                    <button
                         onClick={onOpenOneInch}
                         className="add-token-btn"
                     >
@@ -532,6 +713,17 @@ const NormalView = React.memo(function NormalView({
                     </button>
                 </div>
             </div>
+
+            {(bulkDeleteStatus || bulkDeleteError) && (
+                <div className="comparison-status">
+                    {bulkDeleteError && (
+                        <div className="save-status save-status-error">{bulkDeleteError}</div>
+                    )}
+                    {bulkDeleteStatus && (
+                        <div className="save-status save-status-success">{bulkDeleteStatus}</div>
+                    )}
+                </div>
+            )}
 
             <div style={{ textAlign: "center", marginBottom: "20px" }}>
                 <input
@@ -576,8 +768,10 @@ const OneInchCompareView = React.memo(function OneInchCompareView({
     oneInchBySymbol,
     rapidBySymbol,
     onAddFromOneInch,
+    onAddAllFromOneInch,
     onDeleteFromDb,
     isAddingFromOneInch,
+    isBulkAddingFromOneInch,
     isDeletingFromDb,
     oneInchStatus,
     oneInchErrorMessage,
@@ -602,6 +796,34 @@ const OneInchCompareView = React.memo(function OneInchCompareView({
     const handleOneInchSearchChange = useCallback((e) => {
         onOneInchSearch(e.target.value);
     }, [onOneInchSearch]);
+
+    const eligibleOneInchCount = useMemo(() => {
+        const normalizeChains = (rawChains) => {
+            if (!rawChains) return {};
+            if (typeof rawChains === 'string') {
+                try {
+                    return JSON.parse(rawChains);
+                } catch (e) {
+                    return {};
+                }
+            }
+            return rawChains || {};
+        };
+
+        return (oneInchTokens || []).filter((token) => {
+            const symbol = token?.symbol?.toUpperCase();
+            if (!symbol) return false;
+            const rapidCoin = rapidBySymbol[symbol];
+            if (!rapidCoin?.uuid || !token?.address) return false;
+
+            const dbToken = dbTokenBySymbol.get(symbol.toLowerCase());
+            if (!dbToken) return true;
+
+            const chains = normalizeChains(dbToken?.chains);
+            const existing = chains?.[oneInchChainKey];
+            return !existing || existing.toLowerCase() !== token.address.toLowerCase();
+        }).length;
+    }, [oneInchTokens, rapidBySymbol, dbTokenBySymbol, oneInchChainKey]);
 
     return (
         <>
@@ -719,7 +941,18 @@ const OneInchCompareView = React.memo(function OneInchCompareView({
                 </div>
 
                 <div className="compare-column">
-                    <h4>1inch Tokens</h4>
+                    <div className="compare-header-row">
+                        <h4>1inch Tokens</h4>
+                        <button
+                            className="import-btn"
+                            onClick={() => onAddAllFromOneInch(oneInchTokens)}
+                            disabled={isBulkAddingFromOneInch || eligibleOneInchCount === 0}
+                        >
+                            {isBulkAddingFromOneInch
+                                ? 'Adding all...'
+                                : `Add All (${eligibleOneInchCount})`}
+                        </button>
+                    </div>
                     <div className="table-container">
                         <table className="comparison-table">
                             <thead>

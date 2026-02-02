@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTokens } from '../../contexts/TokenContext';
 import { useRapidApi } from '../../contexts/RapidApiContext';
+import { useChainContext } from '../../contexts/ChainContext';
 import { useBinanceWs } from '../../contexts/BinanceWsContext';
 import './token-table.css';
 
@@ -10,6 +11,7 @@ function TokenTable({ tokens: tokensProp = [] }) {
   const { dbTokens, loadingAll } = useTokens();
   const { coins } = useRapidApi();
   const { latestData } = useBinanceWs();
+  const { selectedChain } = useChainContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -43,9 +45,35 @@ function TokenTable({ tokens: tokensProp = [] }) {
   }, [latestData]);
 
   const tokens = useMemo(() => {
+    const chainKeyMap = {
+      '1': ['ethereum'],
+      '56': ['bnb', 'bsc'],
+      '137': ['polygon'],
+      '43114': ['avalanche'],
+      '42161': ['arbitrum'],
+      '501': ['solana']
+    };
+
+    const normalizeChains = (rawChains) => {
+      if (!rawChains) return {};
+      if (typeof rawChains === 'string') {
+        try {
+          return JSON.parse(rawChains);
+        } catch (e) {
+          return {};
+        }
+      }
+      return rawChains || {};
+    };
+
     return (baseTokens || [])
       .map((token) => {
         if (!token?.uuid) return null;
+        const chains = normalizeChains(token?.chains);
+        const chainKey = String(selectedChain || '');
+        const aliasKeys = chainKeyMap[chainKey] || [];
+        const chainMatch = chains?.[chainKey] || aliasKeys.some((key) => chains?.[key]);
+        if (!chainMatch) return null;
         const symbolKey = token.symbol?.toUpperCase();
         const rapidCoin = symbolKey ? rapidBySymbol[symbolKey] : null;
         const binanceTicker = symbolKey ? binanceBySymbol[symbolKey] : null;
@@ -64,7 +92,7 @@ function TokenTable({ tokens: tokensProp = [] }) {
         };
       })
       .filter(Boolean);
-  }, [baseTokens, rapidBySymbol, binanceBySymbol]);
+  }, [baseTokens, rapidBySymbol, binanceBySymbol, selectedChain]);
   
   // Helper to get sortable value
   const getSortValue = (token, key) => {

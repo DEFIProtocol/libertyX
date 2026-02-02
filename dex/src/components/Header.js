@@ -13,7 +13,7 @@ function Header(props) {
   const [ isOpen, setIsOpen] = useState(false);
   const [screenSize, setScreenSize] = useState(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const { selectedChain, setSelectedChain, availableChains } = useChainContext(); // ✅ Use custom hook
+  const { selectedChain, setSelectedChain, availableChains, getChainLabel } = useChainContext(); // ✅ Use custom hook
 
   useEffect(() => {
     const handleResize = () => setScreenSize(window.innerWidth);
@@ -102,15 +102,15 @@ function Header(props) {
         <div className="rightH">
         <div className="headerItem">
           <img src={Eth} alt="eth" className ="eth" />
-          {!activeMenu ? "Eth" : (
+          {!activeMenu ? (getChainLabel?.(selectedChain) || 'Chain') : (
             <select 
               className="chainSelect" 
               value={selectedChain} 
               onChange={(e) => setSelectedChain(e.target.value)}
             >
               {availableChains.map(chain => (
-                <option key={chain} value={chain}>
-                  {chain.charAt(0).toUpperCase() + chain.slice(1)}
+                <option key={chain.id} value={chain.id}>
+                  {chain.label}
                 </option>
               ))}
             </select>

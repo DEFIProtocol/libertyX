@@ -27,17 +27,7 @@ function WalletModal({ isOpen, onClose }) {
 
   const connectEVM = async (connector) => {
     try {
-      // Since we're using string chain names, we need to convert to chain ID
-      // You might need to adjust this based on your chain data structure
-      const chainMap = {
-        'ethereum': 1,
-        'polygon': 137,
-        'arbitrum': 42161,
-        'bsc': 56,
-        'avalanche': 43114
-      };
-      
-      const chainId = chainMap[selectedLocal] || 1; // Default to Ethereum
+      const chainId = parseInt(selectedLocal, 10) || 1; // Default to Ethereum
       
       await connect({ connector, chainId });
       
@@ -99,16 +89,16 @@ function WalletModal({ isOpen, onClose }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {availableChains.map(chain => (
               <button 
-                key={chain} 
-                onClick={() => setSelectedLocal(chain)} 
+                key={chain.id} 
+                onClick={() => setSelectedLocal(chain.id)} 
                 className="walletOption" 
                 style={{ 
                   padding: '8px 10px', 
                   borderRadius: 10, 
-                  borderLeft: selectedLocal === chain ? '4px solid var(--accent)' : '4px solid transparent' 
+                  borderLeft: selectedLocal === chain.id ? '4px solid var(--accent)' : '4px solid transparent' 
                 }}
               >
-                {chain.charAt(0).toUpperCase() + chain.slice(1)}
+                {chain.label}
               </button>
             ))}
           </div>
