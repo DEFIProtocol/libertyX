@@ -10,11 +10,6 @@ class GlobalPriceStore {
         const normalizedSymbol = symbol.toUpperCase();
         const existing = this.prices.get(normalizedSymbol) || {};
 
-        const isMerge = existing.source && data.source && existing.source !== data.source;
-        if (isMerge) {
-            console.log(`[GlobalPriceStore] MERGING ${normalizedSymbol}: ${existing.source} + ${data.source}`);
-        }
-
         const next = {
             ...existing,
             ...data,
@@ -47,22 +42,6 @@ class GlobalPriceStore {
 
         this.prices.set(normalizedSymbol, next);
         this.notifySubscribers(normalizedSymbol, next);
-
-        if (isMerge) {
-            const finalData = this.prices.get(normalizedSymbol);
-            console.log(`[GlobalPriceStore] Merged ${normalizedSymbol}:`, {
-                oldSource: existing.source,
-                newSource: data.source,
-                finalSource: finalData?.source,
-                price: finalData?.price,
-                binancePrice: finalData?.binancePrice,
-                rapidPrice: finalData?.rapidPrice
-            });
-        }
-
-        if (data.source === 'binance' && this.prices.size % 250 === 0) {
-            console.log(`[GlobalPriceStore] size: ${this.prices.size}`);
-        }
     }
 
     updatePrices(pricesObject, source) {
@@ -74,7 +53,6 @@ class GlobalPriceStore {
                 ...(isObject ? priceData : {})
             });
         });
-        console.log(`[GlobalPriceStore] bulk update (${source}) count: ${Object.keys(pricesObject).length}`);
     }
 
     getPrice(symbol) {

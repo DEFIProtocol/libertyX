@@ -18,12 +18,28 @@ function AdminPricingManager() {
         error: cryptosError
     } = useRapidApi();
 
+    const normalizeSymbolKey = (value) => {
+        if (!value) return '';
+        return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    };
+
     const cryptosBySymbol = useMemo(() => {
         const map = {};
         cryptoList.forEach((coin) => {
             const symbol = coin?.symbol?.toUpperCase();
             if (symbol) {
                 map[symbol] = coin;
+            }
+        });
+        return map;
+    }, [cryptoList]);
+
+    const cryptosByKey = useMemo(() => {
+        const map = {};
+        cryptoList.forEach((coin) => {
+            const key = normalizeSymbolKey(coin?.symbol);
+            if (key) {
+                map[key] = coin;
             }
         });
         return map;
@@ -132,11 +148,16 @@ function AdminPricingManager() {
         });
     }, [liveTickerBySymbol, initialSnapshot]);
 
+    const binanceKeySet = useMemo(() => {
+        return new Set(binancePairs.map((ticker) => normalizeSymbolKey(ticker?.s?.replace(/USDT$/, ''))));
+    }, [binancePairs]);
+
     const mergedRows = useMemo(() => {
-        return binancePairs.map((ticker) => {
+        const rows = binancePairs.map((ticker) => {
             const pair = ticker.s;
             const base = pair.replace(/USDT$/, '');
-            const apiCoin = cryptosBySymbol[base];
+            const key = normalizeSymbolKey(base);
+            const apiCoin = cryptosBySymbol[base] || cryptosByKey[key];
             const dbToken = dbTokensBySymbol[base];
 
             const binancePrice = parseFloat(ticker.c || 0);
@@ -160,7 +181,37 @@ function AdminPricingManager() {
                 raw: ticker
             };
         });
-    }, [binancePairs, cryptosBySymbol, dbTokensBySymbol, binanceConnected]);
+
+        const rapidOnlyRows = cryptoList
+            .filter((coin) => {
+                const key = normalizeSymbolKey(coin?.symbol);
+                return key && !binanceKeySet.has(key);
+            })
+            .map((coin) => {
+                const symbol = coin?.symbol?.toUpperCase() || '';
+                const dbToken = dbTokensBySymbol[symbol];
+
+                return {
+                    pair: symbol ? `${symbol}USDT` : '—',
+                    symbol: symbol || '—',
+                    name: coin?.name || dbToken?.name || symbol,
+                    uuid: coin?.uuid || dbToken?.uuid,
+                    dbPrice: dbToken?.price ?? null,
+                    hasDbToken: !!dbToken,
+                    apiPrice: coin?.price ? parseFloat(coin.price) : null,
+                    binancePrice: null,
+                    priceSource: 'rapidapi',
+                    isStreaming: false,
+                    isStale: true,
+                    lastUpdate: null,
+                    updated_at: dbToken?.updated_at,
+                    apiCoin: coin,
+                    raw: null
+                };
+            });
+
+        return [...rows, ...rapidOnlyRows];
+    }, [binancePairs, cryptosBySymbol, cryptosByKey, dbTokensBySymbol, binanceConnected, cryptoList, binanceKeySet]);
 
     const mergedRowsBySymbol = useMemo(() => {
         const map = {};
@@ -183,29 +234,73 @@ function AdminPricingManager() {
     const [showBinanceSection, setShowBinanceSection] = useState(false);
     const [showRapidSection, setShowRapidSection] = useState(false);
     const [showComparisonSection, setShowComparisonSection] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortConfig, setSortConfig] = useState({ key: 'symbol', direction: 'asc' });
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(100);
     const [binancePage, setBinancePage] = useState(1);
     const [binancePageSize, setBinancePageSize] = useState(100);
+    const [binanceSortConfig, setBinanceSortConfig] = useState({ key: 'symbol', direction: 'asc' });
     const [rapidPage, setRapidPage] = useState(1);
     const [rapidPageSize, setRapidPageSize] = useState(100);
+    const [rapidSortConfig, setRapidSortConfig] = useState({ key: 'symbol', direction: 'asc' });
 
     // Filter tokens based on view mode
     const filteredTokens = useMemo(() => {
-        return mergedRows.filter(token => {
+        const term = searchTerm.trim().toLowerCase();
+        const matchesSearch = (token) => {
+            if (!term) return true;
+            return (
+                token.symbol?.toLowerCase().includes(term) ||
+                token.name?.toLowerCase().includes(term) ||
+                token.pair?.toLowerCase().includes(term)
+            );
+        };
+
+        const matchesView = (token) => {
             switch(viewMode) {
                 case 'mismatch':
-                    // Show tokens where API price differs from Binance price
-                    return token.apiPrice && token.binancePrice && 
-                           Math.abs(token.apiPrice - token.binancePrice) > (token.apiPrice * 0.01); // 1% difference
+                    return token.apiPrice && token.binancePrice &&
+                           Math.abs(token.apiPrice - token.binancePrice) > (token.apiPrice * 0.01);
                 case 'noPrice':
-                    // Show tokens without matching API price
                     return !token.apiPrice;
                 default:
                     return true;
             }
-        });
-    }, [mergedRows, viewMode]);
+        };
+
+        const getSortValue = (token) => {
+            switch (sortConfig.key) {
+                case 'symbol':
+                    return token.symbol?.toLowerCase() || '';
+                case 'name':
+                    return token.name?.toLowerCase() || '';
+                case 'apiPrice':
+                    return token.apiPrice ?? -1;
+                case 'binancePrice':
+                    return token.binancePrice ?? -1;
+                case 'difference':
+                    if (!token.apiPrice || !token.binancePrice) return -Infinity;
+                    return (token.binancePrice - token.apiPrice) / token.apiPrice;
+                case 'marketCap':
+                    return token.apiCoin?.marketCap ? parseFloat(token.apiCoin.marketCap) : -1;
+                default:
+                    return token.symbol?.toLowerCase() || '';
+            }
+        };
+
+        const dir = sortConfig.direction === 'asc' ? 1 : -1;
+
+        return mergedRows
+            .filter(token => matchesView(token) && matchesSearch(token))
+            .sort((a, b) => {
+                const aVal = getSortValue(a);
+                const bVal = getSortValue(b);
+                if (aVal < bVal) return -1 * dir;
+                if (aVal > bVal) return 1 * dir;
+                return 0;
+            });
+    }, [mergedRows, viewMode, searchTerm, sortConfig]);
 
     const totalPages = useMemo(() => {
         if (pageSize === 0) return 1;
@@ -219,25 +314,28 @@ function AdminPricingManager() {
     }, [filteredTokens, page, pageSize]);
 
     const matchingSymbolsCount = useMemo(() => {
-        const binanceSet = new Set(binancePairs.map(ticker => ticker?.s?.replace(/USDT$/, '')));
-        return cryptoList.filter(coin => binanceSet.has(coin?.symbol?.toUpperCase())).length;
-    }, [binancePairs, cryptoList]);
+        return cryptoList.filter(coin => {
+            const key = normalizeSymbolKey(coin?.symbol);
+            return key && binanceKeySet.has(key);
+        }).length;
+    }, [cryptoList, binanceKeySet]);
 
     const binanceOnlySymbols = useMemo(() => {
-        const rapidSet = new Set(cryptoList.map(coin => coin?.symbol?.toUpperCase()).filter(Boolean));
+        const rapidKeySet = new Set(cryptoList
+            .map(coin => normalizeSymbolKey(coin?.symbol))
+            .filter(Boolean));
         return binancePairs
             .map(ticker => ticker?.s?.replace(/USDT$/, ''))
             .filter(Boolean)
-            .filter(symbol => !rapidSet.has(symbol));
+            .filter(symbol => !rapidKeySet.has(normalizeSymbolKey(symbol)));
     }, [binancePairs, cryptoList]);
 
     const rapidOnlySymbols = useMemo(() => {
-        const binanceSet = new Set(binancePairs.map(ticker => ticker?.s?.replace(/USDT$/, '')));
         return cryptoList
             .map(coin => coin?.symbol?.toUpperCase())
             .filter(Boolean)
-            .filter(symbol => !binanceSet.has(symbol));
-    }, [binancePairs, cryptoList]);
+            .filter(symbol => !binanceKeySet.has(normalizeSymbolKey(symbol)));
+    }, [cryptoList, binanceKeySet]);
 
     const binanceTotalPages = useMemo(() => {
         if (binancePageSize === 0) return 1;
@@ -245,10 +343,38 @@ function AdminPricingManager() {
     }, [binancePairs.length, binancePageSize]);
 
     const binancePaginated = useMemo(() => {
-        if (binancePageSize === 0) return binancePairs;
+        const getSortValue = (ticker) => {
+            const pair = ticker?.s || '';
+            const symbol = pair.replace(/USDT$/, '');
+            const last = parseFloat(ticker?.c || 0);
+            const open = parseFloat(ticker?.o || 0);
+            const change = open ? ((last - open) / open) * 100 : 0;
+
+            switch (binanceSortConfig.key) {
+                case 'symbol':
+                    return symbol.toLowerCase();
+                case 'price':
+                    return last;
+                case 'change':
+                    return change;
+                default:
+                    return symbol.toLowerCase();
+            }
+        };
+
+        const dir = binanceSortConfig.direction === 'asc' ? 1 : -1;
+        const sorted = [...binancePairs].sort((a, b) => {
+            const aVal = getSortValue(a);
+            const bVal = getSortValue(b);
+            if (aVal < bVal) return -1 * dir;
+            if (aVal > bVal) return 1 * dir;
+            return 0;
+        });
+
+        if (binancePageSize === 0) return sorted;
         const start = (binancePage - 1) * binancePageSize;
-        return binancePairs.slice(start, start + binancePageSize);
-    }, [binancePairs, binancePage, binancePageSize]);
+        return sorted.slice(start, start + binancePageSize);
+    }, [binancePairs, binancePage, binancePageSize, binanceSortConfig]);
 
     const rapidTotalPages = useMemo(() => {
         if (rapidPageSize === 0) return 1;
@@ -256,10 +382,36 @@ function AdminPricingManager() {
     }, [cryptoList.length, rapidPageSize]);
 
     const rapidPaginated = useMemo(() => {
-        if (rapidPageSize === 0) return cryptoList;
+        const getSortValue = (coin) => {
+            switch (rapidSortConfig.key) {
+                case 'symbol':
+                    return coin?.symbol?.toUpperCase() || '';
+                case 'name':
+                    return coin?.name?.toLowerCase() || '';
+                case 'price':
+                    return coin?.price ? parseFloat(coin.price) : -1;
+                case 'marketCap':
+                    return coin?.marketCap ? parseFloat(coin.marketCap) : -1;
+                case 'change':
+                    return coin?.change ? parseFloat(coin.change) : -Infinity;
+                default:
+                    return coin?.symbol?.toUpperCase() || '';
+            }
+        };
+
+        const dir = rapidSortConfig.direction === 'asc' ? 1 : -1;
+        const sorted = [...cryptoList].sort((a, b) => {
+            const aVal = getSortValue(a);
+            const bVal = getSortValue(b);
+            if (aVal < bVal) return -1 * dir;
+            if (aVal > bVal) return 1 * dir;
+            return 0;
+        });
+
+        if (rapidPageSize === 0) return sorted;
         const start = (rapidPage - 1) * rapidPageSize;
-        return cryptoList.slice(start, start + rapidPageSize);
-    }, [cryptoList, rapidPage, rapidPageSize]);
+        return sorted.slice(start, start + rapidPageSize);
+    }, [cryptoList, rapidPage, rapidPageSize, rapidSortConfig]);
 
     // Toggle token selection
     const toggleTokenSelection = (symbol) => {
@@ -371,6 +523,39 @@ function AdminPricingManager() {
                             {showComparisonSection ? 'Hide Compare' : 'Show Compare'}
                         </button>
                     </div>
+                    <div className="search-sort-controls">
+                        <input
+                            type="text"
+                            className="view-select"
+                            placeholder="Search symbol, name, pair..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setPage(1);
+                            }}
+                        />
+                        <select
+                            className="view-select"
+                            value={sortConfig.key}
+                            onChange={(e) => setSortConfig(prev => ({ ...prev, key: e.target.value }))}
+                        >
+                            <option value="symbol">Sort: Symbol</option>
+                            <option value="name">Sort: Name</option>
+                            <option value="apiPrice">Sort: RapidAPI Price</option>
+                            <option value="binancePrice">Sort: Binance Price</option>
+                            <option value="difference">Sort: Difference %</option>
+                            <option value="marketCap">Sort: Market Cap</option>
+                        </select>
+                        <button
+                            className="update-btn"
+                            onClick={() => setSortConfig(prev => ({
+                                ...prev,
+                                direction: prev.direction === 'asc' ? 'desc' : 'asc'
+                            }))}
+                        >
+                            {sortConfig.direction === 'asc' ? 'Asc' : 'Desc'}
+                        </button>
+                    </div>
                 </div>
                 
                 {pricesError && (
@@ -385,20 +570,43 @@ function AdminPricingManager() {
                 <div className="section">
                     <div className="section-header">
                         <h3>Binance USDT Pairs</h3>
-                        <select
-                            value={binancePageSize}
-                            onChange={(e) => {
-                                const nextSize = parseInt(e.target.value, 10);
-                                setBinancePageSize(nextSize);
-                                setBinancePage(1);
-                            }}
-                            className="view-select"
-                        >
-                            <option value={50}>50 / page</option>
-                            <option value={100}>100 / page</option>
-                            <option value={250}>250 / page</option>
-                            <option value={0}>All</option>
-                        </select>
+                        <div className="search-sort-controls">
+                            <select
+                                className="view-select"
+                                value={binanceSortConfig.key}
+                                onChange={(e) => {
+                                    setBinanceSortConfig(prev => ({ ...prev, key: e.target.value }));
+                                    setBinancePage(1);
+                                }}
+                            >
+                                <option value="symbol">Sort: Symbol</option>
+                                <option value="price">Sort: Price</option>
+                                <option value="change">Sort: 24h Change</option>
+                            </select>
+                            <button
+                                className="update-btn"
+                                onClick={() => setBinanceSortConfig(prev => ({
+                                    ...prev,
+                                    direction: prev.direction === 'asc' ? 'desc' : 'asc'
+                                }))}
+                            >
+                                {binanceSortConfig.direction === 'asc' ? 'Asc' : 'Desc'}
+                            </button>
+                            <select
+                                value={binancePageSize}
+                                onChange={(e) => {
+                                    const nextSize = parseInt(e.target.value, 10);
+                                    setBinancePageSize(nextSize);
+                                    setBinancePage(1);
+                                }}
+                                className="view-select"
+                            >
+                                <option value={50}>50 / page</option>
+                                <option value={100}>100 / page</option>
+                                <option value={250}>250 / page</option>
+                                <option value={0}>All</option>
+                            </select>
+                        </div>
                     </div>
                     <div className="table-container">
                         <BinanceTable pairs={binancePaginated} />
@@ -433,20 +641,45 @@ function AdminPricingManager() {
                 <div className="section">
                     <div className="section-header">
                         <h3>RapidAPI Coins</h3>
-                        <select
-                            value={rapidPageSize}
-                            onChange={(e) => {
-                                const nextSize = parseInt(e.target.value, 10);
-                                setRapidPageSize(nextSize);
-                                setRapidPage(1);
-                            }}
-                            className="view-select"
-                        >
-                            <option value={50}>50 / page</option>
-                            <option value={100}>100 / page</option>
-                            <option value={250}>250 / page</option>
-                            <option value={0}>All</option>
-                        </select>
+                        <div className="search-sort-controls">
+                            <select
+                                className="view-select"
+                                value={rapidSortConfig.key}
+                                onChange={(e) => {
+                                    setRapidSortConfig(prev => ({ ...prev, key: e.target.value }));
+                                    setRapidPage(1);
+                                }}
+                            >
+                                <option value="symbol">Sort: Symbol</option>
+                                <option value="name">Sort: Name</option>
+                                <option value="price">Sort: Price</option>
+                                <option value="marketCap">Sort: Market Cap</option>
+                                <option value="change">Sort: 24h Change</option>
+                            </select>
+                            <button
+                                className="update-btn"
+                                onClick={() => setRapidSortConfig(prev => ({
+                                    ...prev,
+                                    direction: prev.direction === 'asc' ? 'desc' : 'asc'
+                                }))}
+                            >
+                                {rapidSortConfig.direction === 'asc' ? 'Asc' : 'Desc'}
+                            </button>
+                            <select
+                                value={rapidPageSize}
+                                onChange={(e) => {
+                                    const nextSize = parseInt(e.target.value, 10);
+                                    setRapidPageSize(nextSize);
+                                    setRapidPage(1);
+                                }}
+                                className="view-select"
+                            >
+                                <option value={50}>50 / page</option>
+                                <option value={100}>100 / page</option>
+                                <option value={250}>250 / page</option>
+                                <option value={0}>All</option>
+                            </select>
+                        </div>
                     </div>
                     <div className="table-container">
                         <RapidApiTable coins={rapidPaginated} />

@@ -1,12 +1,70 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTokens } from '../../contexts/TokenContext';
+import { useRapidApi } from '../../contexts/RapidApiContext';
+import { useBinanceWs } from '../../contexts/BinanceWsContext';
 import './token-table.css';
 
-function TokenTable({ tokens = [] }) {
+function TokenTable({ tokens: tokensProp = [] }) {
   const navigate = useNavigate();
+  const { dbTokens, loadingAll } = useTokens();
+  const { coins } = useRapidApi();
+  const { latestData } = useBinanceWs();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
+
+  const rapidBySymbol = useMemo(() => {
+    const map = {};
+    (coins || []).forEach((coin) => {
+      if (coin?.symbol) {
+        map[coin.symbol.toUpperCase()] = coin;
+      }
+    });
+    return map;
+  }, [coins]);
+
+  const baseTokens = useMemo(() => {
+    if (Array.isArray(dbTokens) && dbTokens.length) return dbTokens;
+    return tokensProp;
+  }, [dbTokens, tokensProp]);
+
+  const binanceBySymbol = useMemo(() => {
+    const map = {};
+    if (Array.isArray(latestData)) {
+      latestData.forEach((ticker) => {
+        if (ticker?.s && ticker.s.endsWith('USDT')) {
+          const base = ticker.s.replace(/USDT$/i, '').toUpperCase();
+          map[base] = ticker;
+        }
+      });
+    }
+    return map;
+  }, [latestData]);
+
+  const tokens = useMemo(() => {
+    return (baseTokens || [])
+      .map((token) => {
+        if (!token?.uuid) return null;
+        const symbolKey = token.symbol?.toUpperCase();
+        const rapidCoin = symbolKey ? rapidBySymbol[symbolKey] : null;
+        const binanceTicker = symbolKey ? binanceBySymbol[symbolKey] : null;
+        const binancePrice = binanceTicker?.c ? parseFloat(binanceTicker.c) : null;
+        const rapidPrice = rapidCoin?.price ? parseFloat(rapidCoin.price) : null;
+        const resolvedPrice = binancePrice ?? rapidPrice ?? null;
+
+        return {
+          ...token,
+          uuid: token.uuid || rapidCoin?.uuid,
+          name: token.name || rapidCoin?.name || token.symbol,
+          price: resolvedPrice !== null ? resolvedPrice.toString() : '0',
+          change: token.change || (rapidCoin?.change ? rapidCoin.change.toString() : '0'),
+          marketCap: token.marketCap || token.market_cap || (rapidCoin?.marketCap ?? '0'),
+          priceSource: binancePrice !== null ? 'binance' : (rapidPrice !== null ? 'rapidapi' : 'unknown')
+        };
+      })
+      .filter(Boolean);
+  }, [baseTokens, rapidBySymbol, binanceBySymbol]);
   
   // Helper to get sortable value
   const getSortValue = (token, key) => {
@@ -61,9 +119,12 @@ function TokenTable({ tokens = [] }) {
   };
 
   const formatPrice = (price) => {
-    return parseFloat(price).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+    const num = parseFloat(price);
+    if (!Number.isFinite(num)) return '0.00';
+    const decimals = num < 0.02 ? 4 : 2;
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
     });
   };
 

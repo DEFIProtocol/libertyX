@@ -1,6 +1,8 @@
 // AdminTokenManager.jsx - Optimized version
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTokens } from '../../contexts/TokenContext';
+import { useRapidApi } from '../../contexts/RapidApiContext';
+import { useOneInch } from '../../contexts/OneInchContext';
 import { useTokenCrud } from '../../hooks';
 import '../Tokens/token-table.css';
 import './AdminTokenManager.css';
@@ -34,8 +36,13 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
         comparisonStats,
         dbCount,
         jsonCount,
-        dbTokens
+        dbTokens,
+        refreshAll
     } = useTokens();
+
+    const { coins: rapidCoins } = useRapidApi();
+    const { tokensList: oneInchTokens, isLoading: oneInchLoading, error: oneInchError, chainId, setChainId } = useOneInch();
+    const { createToken, deleteToken, updateToken } = useTokenCrud();
     
     // State
     const [selectedTokens, setSelectedTokens] = useState([]);
@@ -49,6 +56,28 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
     const [editingStatus, setEditingStatus] = useState(null);
     const [addingStatus, setAddingStatus] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
+    const [oneInchCompareMode, setOneInchCompareMode] = useState(false);
+    const [selectedSymbol, setSelectedSymbol] = useState('');
+    const [dbOneInchSearch, setDbOneInchSearch] = useState('');
+    const [oneInchSearch, setOneInchSearch] = useState('');
+    const [oneInchStatus, setOneInchStatus] = useState('');
+    const [oneInchErrorMessage, setOneInchErrorMessage] = useState('');
+    const [isAddingFromOneInch, setIsAddingFromOneInch] = useState(false);
+    const [isDeletingFromDb, setIsDeletingFromDb] = useState(false);
+    const [comparisonExpandedRows, setComparisonExpandedRows] = useState(new Set());
+    const [autoEditRows, setAutoEditRows] = useState(new Set());
+    const [oneInchChainKey, setOneInchChainKey] = useState('ethereum');
+
+    const chainOptions = useMemo(() => (
+        [
+            { key: 'ethereum', label: 'Ethereum', id: '1' },
+            { key: 'bnb', label: 'BNB', id: '56' },
+            { key: 'polygon', label: 'Polygon (PoS)', id: '137' },
+            { key: 'avalanche', label: 'Avalanche', id: '43114' },
+            { key: 'arbitrum', label: 'Arbitrum', id: '42161' },
+            { key: 'solana', label: 'Solana', id: '501' }
+        ]
+    ), []);
 
     // Get sortable value for table
     const getSortValue = (token, key) => {
@@ -114,6 +143,48 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
         return map;
     }, [dbTokens]);
 
+    const rapidBySymbol = useMemo(() => {
+        const map = {};
+        (rapidCoins || []).forEach((coin) => {
+            if (coin?.symbol) {
+                map[coin.symbol.toUpperCase()] = coin;
+            }
+        });
+        return map;
+    }, [rapidCoins]);
+
+    const oneInchBySymbol = useMemo(() => {
+        const map = {};
+        (oneInchTokens || []).forEach((token) => {
+            if (token?.symbol) {
+                map[token.symbol.toUpperCase()] = token;
+            }
+        });
+        return map;
+    }, [oneInchTokens]);
+
+    const oneInchFiltered = useMemo(() => {
+        const term = oneInchSearch.trim().toLowerCase();
+        return (oneInchTokens || []).filter((token) => {
+            if (!term) return true;
+            return (
+                token.symbol?.toLowerCase().includes(term) ||
+                token.name?.toLowerCase().includes(term)
+            );
+        }).slice(0, 500);
+    }, [oneInchTokens, oneInchSearch]);
+
+    const dbOneInchFiltered = useMemo(() => {
+        const term = dbOneInchSearch.trim().toLowerCase();
+        return (dbTokens || []).filter((token) => {
+            if (!term) return true;
+            return (
+                token.symbol?.toLowerCase().includes(term) ||
+                token.name?.toLowerCase().includes(term)
+            );
+        }).slice(0, 500);
+    }, [dbTokens, dbOneInchSearch]);
+
     // Event handlers with useCallback
     const toggleRowExpansion = useCallback((tokenKey) => {
         setExpandedRows(prev => {
@@ -125,6 +196,12 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
             }
             return newSet;
         });
+        setAutoEditRows(prev => {
+            if (!prev.has(tokenKey)) return prev;
+            const next = new Set(prev);
+            next.delete(tokenKey);
+            return next;
+        });
     }, []);
 
     const handleSort = useCallback((key) => {
@@ -132,6 +209,20 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
             key,
             direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
         }));
+    }, []);
+
+    const openInlineEditor = useCallback((tokenKey) => {
+        if (!tokenKey) return;
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            next.add(tokenKey);
+            return next;
+        });
+        setAutoEditRows(prev => {
+            const next = new Set(prev);
+            next.add(tokenKey);
+            return next;
+        });
     }, []);
 
     const toggleTokenSelection = useCallback((token) => {
@@ -142,6 +233,19 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
                 return prev.filter(t => (t.symbol || t.id) !== key);
             }
             return [...prev, token];
+        });
+    }, []);
+
+    const toggleComparisonExpansion = useCallback((symbol) => {
+        if (!symbol) return;
+        setComparisonExpandedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(symbol)) {
+                next.delete(symbol);
+            } else {
+                next.add(symbol);
+            }
+            return next;
         });
     }, []);
 
@@ -171,6 +275,112 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
         setAddingStatus(null);
     }, []);
 
+    const closeOneInchCompare = useCallback(() => {
+        setOneInchCompareMode(false);
+        setSelectedSymbol('');
+        setDbOneInchSearch('');
+        setOneInchSearch('');
+        setOneInchStatus('');
+        setOneInchErrorMessage('');
+    }, []);
+
+    const handleSelectSymbol = useCallback((symbol) => {
+        if (!symbol) return;
+        setSelectedSymbol(symbol.toUpperCase());
+    }, []);
+
+    const handleChainChange = useCallback((e) => {
+        const nextKey = e.target.value;
+        const next = chainOptions.find((c) => c.key === nextKey);
+        if (!next) return;
+        setOneInchChainKey(nextKey);
+        setChainId(next.id);
+    }, [chainOptions, setChainId]);
+
+    const handleAddFromOneInch = useCallback(async (symbolInput) => {
+        const normalized = symbolInput?.toUpperCase().trim();
+        if (!normalized) return;
+
+        setOneInchErrorMessage('');
+        setOneInchStatus('');
+
+        const oneInchToken = oneInchBySymbol[normalized];
+        if (!oneInchToken) {
+            setOneInchErrorMessage(`Symbol not found in 1inch: ${normalized}`);
+            return;
+        }
+
+        const rapidCoin = rapidBySymbol[normalized];
+        if (!rapidCoin?.uuid) {
+            setOneInchErrorMessage(`Token not found in RapidAPI. ${normalized} is missing UUID.`);
+            return;
+        }
+
+        try {
+            setIsAddingFromOneInch(true);
+            const address = oneInchToken?.address;
+            const existingDbToken = dbTokenBySymbol.get(normalized.toLowerCase());
+
+            const result = existingDbToken
+                ? await updateToken(normalized, {
+                    chains: {
+                        ...(existingDbToken.chains || {}),
+                        ...(address ? { [oneInchChainKey]: address } : {})
+                    }
+                })
+                : await createToken({
+                    symbol: normalized,
+                    name: oneInchToken.name || rapidCoin?.name || normalized,
+                    price: rapidCoin?.price || 0,
+                    market_cap: rapidCoin?.marketCap || 0,
+                    volume_24h: rapidCoin?.volume24h || 0,
+                    decimals: oneInchToken.decimals,
+                    type: oneInchToken.type || '1inch',
+                    image: rapidCoin?.iconUrl,
+                    uuid: rapidCoin?.uuid,
+                    rapidapi_data: rapidCoin,
+                    oneinch_data: oneInchToken,
+                    chains: address ? { [oneInchChainKey]: address } : undefined
+                });
+
+            if (result.success) {
+                setOneInchStatus(existingDbToken
+                    ? `Updated ${normalized} with 1inch address.`
+                    : `Added ${normalized} to database.`);
+                refreshAll();
+            } else {
+                setOneInchErrorMessage(result.error || 'Failed to add token');
+            }
+        } catch (error) {
+            setOneInchErrorMessage(error.message || 'Failed to add token');
+        } finally {
+            setIsAddingFromOneInch(false);
+        }
+    }, [createToken, updateToken, oneInchBySymbol, rapidBySymbol, refreshAll, dbTokenBySymbol, oneInchChainKey, chainId]);
+
+    const handleDeleteFromDb = useCallback(async (symbol) => {
+        const normalized = symbol?.toUpperCase().trim();
+        if (!normalized) return;
+
+        setOneInchErrorMessage('');
+        setOneInchStatus('');
+
+        try {
+            setIsDeletingFromDb(true);
+            const result = await deleteToken(normalized);
+            if (result.success) {
+                setOneInchStatus(`Deleted ${normalized} from database.`);
+                refreshAll();
+            } else {
+                setOneInchErrorMessage(result.error || 'Failed to delete token');
+            }
+        } catch (error) {
+            setOneInchErrorMessage(error.message || 'Failed to delete token');
+        } finally {
+            setIsDeletingFromDb(false);
+        }
+    }, [deleteToken, refreshAll]);
+
     if (loadingAll) {
         return <div className="loading">Loading token data...</div>;
     }
@@ -184,6 +394,9 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
                     tokens={tokens}
                     selectedTokens={selectedTokens}
                     onSelectToken={toggleTokenSelection}
+                    expandedRows={comparisonExpandedRows}
+                    onToggleExpansion={toggleComparisonExpansion}
+                    onRefresh={refreshAll}
                     toggleComparisonMode={toggleComparisonMode}
                     setAddingToken={setAddingToken}
                     comparisonStats={comparisonStats}
@@ -194,6 +407,35 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
                     dbCount={dbCount}
                     jsonCount={jsonCount}
                 />
+            ) : oneInchCompareMode ? (
+                <OneInchCompareView
+                    dbTokens={dbTokens}
+                    oneInchTokens={oneInchFiltered}
+                    oneInchLoading={oneInchLoading}
+                    oneInchError={oneInchError}
+                    dbCount={dbCount}
+                    onClose={closeOneInchCompare}
+                    onSelectSymbol={handleSelectSymbol}
+                    selectedSymbol={selectedSymbol}
+                    dbTokenBySymbol={dbTokenBySymbol}
+                    oneInchBySymbol={oneInchBySymbol}
+                    rapidBySymbol={rapidBySymbol}
+                    onAddFromOneInch={handleAddFromOneInch}
+                    onDeleteFromDb={handleDeleteFromDb}
+                    isAddingFromOneInch={isAddingFromOneInch}
+                    isDeletingFromDb={isDeletingFromDb}
+                    oneInchStatus={oneInchStatus}
+                    oneInchErrorMessage={oneInchErrorMessage}
+                    dbSearch={dbOneInchSearch}
+                    onDbSearch={setDbOneInchSearch}
+                    oneInchSearch={oneInchSearch}
+                    onOneInchSearch={setOneInchSearch}
+                    dbFiltered={dbOneInchFiltered}
+                    onRefresh={refreshAll}
+                    chainOptions={chainOptions}
+                    oneInchChainKey={oneInchChainKey}
+                    onChainChange={handleChainChange}
+                />
             ) : (
                 <NormalView 
                     searchTerm={searchTerm}
@@ -201,11 +443,12 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
                     filteredAndSortedTokens={filteredAndSortedTokens}
                     expandedRows={expandedRows}
                     onToggleExpansion={toggleRowExpansion}
+                    autoEditRows={autoEditRows}
+                    onOpenEditor={openInlineEditor}
                     sortConfig={sortConfig}
                     onSort={handleSort}
                     formatPrice={formatPrice}
                     formatMarketCap={formatMarketCap}
-                    onEdit={setEditingToken}
                     dbTokenBySymbol={dbTokenBySymbol}
                     toggleComparisonMode={toggleComparisonMode}
                     setAddingToken={setAddingToken}
@@ -215,10 +458,10 @@ const AdminTokenManager = React.memo(function AdminTokenManager({ tokens = [], i
                     loadingJson={loadingJson}
                     dbCount={dbCount}
                     jsonCount={jsonCount}
+                    onOpenOneInch={() => setOneInchCompareMode(true)}
+                    onRefresh={refreshAll}
                 />
             )}
-
-            {/* Removed modals - editing now happens inline */}
         </div>
     );
 });
@@ -230,11 +473,12 @@ const NormalView = React.memo(function NormalView({
     filteredAndSortedTokens,
     expandedRows,
     onToggleExpansion,
+    autoEditRows,
+    onOpenEditor,
     sortConfig,
     onSort,
     formatPrice,
     formatMarketCap,
-    onEdit,
     dbTokenBySymbol,
     toggleComparisonMode,
     setAddingToken,
@@ -243,7 +487,9 @@ const NormalView = React.memo(function NormalView({
     loadingDb,
     loadingJson,
     dbCount,
-    jsonCount
+    jsonCount,
+    onOpenOneInch,
+    onRefresh
 }) {
     const handleSearchChange = useCallback((e) => {
         setSearchTerm(e.target.value);
@@ -271,6 +517,12 @@ const NormalView = React.memo(function NormalView({
                     >
                         ➕ Add Token
                     </button>
+                    <button
+                        onClick={onOpenOneInch}
+                        className="add-token-btn"
+                    >
+                        🧩 Compare 1inch
+                    </button>
                     
                     <button 
                         onClick={toggleComparisonMode} 
@@ -296,13 +548,288 @@ const NormalView = React.memo(function NormalView({
                     tokens={filteredAndSortedTokens}
                     expandedRows={expandedRows}
                     onToggleExpansion={onToggleExpansion}
+                    autoEditRows={autoEditRows}
+                    onOpenEditor={onOpenEditor}
                     sortConfig={sortConfig}
                     onSort={onSort}
                     formatPrice={formatPrice}
                     formatMarketCap={formatMarketCap}
-                    onEdit={onEdit}
                     dbTokenBySymbol={dbTokenBySymbol}
+                    onRefresh={onRefresh}
                 />
+            </div>
+        </>
+    );
+});
+
+// 1inch Compare View (DB vs 1inch)
+const OneInchCompareView = React.memo(function OneInchCompareView({
+    dbTokens,
+    oneInchTokens,
+    oneInchLoading,
+    oneInchError,
+    dbCount,
+    onClose,
+    onSelectSymbol,
+    selectedSymbol,
+    dbTokenBySymbol,
+    oneInchBySymbol,
+    rapidBySymbol,
+    onAddFromOneInch,
+    onDeleteFromDb,
+    isAddingFromOneInch,
+    isDeletingFromDb,
+    oneInchStatus,
+    oneInchErrorMessage,
+    dbSearch,
+    onDbSearch,
+    oneInchSearch,
+    onOneInchSearch,
+    dbFiltered,
+    onRefresh,
+    chainOptions,
+    oneInchChainKey,
+    onChainChange
+}) {
+    const selectedRapid = selectedSymbol ? rapidBySymbol[selectedSymbol] : null;
+    const selectedOneInch = selectedSymbol ? oneInchBySymbol[selectedSymbol] : null;
+    const selectedDb = selectedSymbol ? dbTokenBySymbol.get(selectedSymbol.toLowerCase()) : null;
+
+    const handleDbSearchChange = useCallback((e) => {
+        onDbSearch(e.target.value);
+    }, [onDbSearch]);
+
+    const handleOneInchSearchChange = useCallback((e) => {
+        onOneInchSearch(e.target.value);
+    }, [onOneInchSearch]);
+
+    return (
+        <>
+            <div className="manager-header">
+                <div className="header-left">
+                    <h2>DB vs 1inch</h2>
+                    <div className="data-source-info">
+                        <span className="db-count">🛢️ DB: {dbCount}</span>
+                        <span className={`json-count ${oneInchError ? 'error' : ''}`}>
+                            🧩 1inch: {oneInchLoading ? '...' : oneInchTokens.length}
+                        </span>
+                    </div>
+                </div>
+                <div className="header-right">
+                    <button onClick={onClose} className="comparison-toggle active">
+                        ⬅ Back
+                    </button>
+                </div>
+            </div>
+
+            {(oneInchErrorMessage || oneInchStatus) && (
+                <div className="comparison-status">
+                    {oneInchErrorMessage && (
+                        <div className="save-status save-status-error">{oneInchErrorMessage}</div>
+                    )}
+                    {oneInchStatus && (
+                        <div className="save-status save-status-success">{oneInchStatus}</div>
+                    )}
+                </div>
+            )}
+
+            <div className="oneinch-compare-controls">
+                <div className="view-filter">
+                    <span className="filter-label">Search DB:</span>
+                    <input
+                        className="filter-select"
+                        type="text"
+                        placeholder="Symbol or name"
+                        value={dbSearch}
+                        onChange={handleDbSearchChange}
+                    />
+                </div>
+                <div className="view-filter">
+                    <span className="filter-label">Chain:</span>
+                    <select
+                        className="filter-select"
+                        value={oneInchChainKey}
+                        onChange={onChainChange}
+                    >
+                        {chainOptions.map((chain) => (
+                            <option key={chain.key} value={chain.key}>
+                                {chain.label} ({chain.id})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <div className="view-filter">
+                    <span className="filter-label">Search 1inch:</span>
+                    <input
+                        className="filter-select"
+                        type="text"
+                        placeholder="Symbol or name"
+                        value={oneInchSearch}
+                        onChange={handleOneInchSearchChange}
+                    />
+                </div>
+            </div>
+
+            <div className="oneinch-compare-grid">
+                <div className="compare-column">
+                    <h4>Database Tokens</h4>
+                    <div className="table-container">
+                        <table className="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Name</th>
+                                    <th>In 1inch</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(dbFiltered || []).map((token) => {
+                                    const symbol = token?.symbol?.toUpperCase();
+                                    const hasMatch = symbol ? !!oneInchBySymbol[symbol] : false;
+                                    const isSelected = symbol && selectedSymbol === symbol;
+
+                                    return (
+                                        <tr
+                                            key={token.id || symbol}
+                                            className={`${hasMatch ? 'matched-row' : ''} ${isSelected ? 'selected-row' : ''}`}
+                                            onClick={() => onSelectSymbol(symbol)}
+                                        >
+                                            <td className="symbol-cell"><strong>{symbol || '—'}</strong></td>
+                                            <td>{token?.name || symbol}</td>
+                                            <td>{hasMatch ? '✅' : '—'}</td>
+                                            <td>
+                                                <button
+                                                    className="action-btn danger"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDeleteFromDb(symbol);
+                                                    }}
+                                                    disabled={isDeletingFromDb}
+                                                >
+                                                    {isDeletingFromDb ? 'Deleting...' : 'Delete'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="compare-column">
+                    <h4>1inch Tokens</h4>
+                    <div className="table-container">
+                        <table className="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Name</th>
+                                    <th>In DB</th>
+                                    <th>RapidAPI UUID</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(oneInchTokens || []).map((token) => {
+                                    const symbol = token?.symbol?.toUpperCase();
+                                    const inDb = symbol ? dbTokenBySymbol.has(symbol.toLowerCase()) : false;
+                                    const dbToken = symbol ? dbTokenBySymbol.get(symbol.toLowerCase()) : null;
+                                    const rapidCoin = symbol ? rapidBySymbol[symbol] : null;
+                                    const hasUuid = !!rapidCoin?.uuid;
+                                    const isSelected = symbol && selectedSymbol === symbol;
+                                    const oneInchAddress = token?.address;
+                                    const rawChains = dbToken?.chains;
+                                    const parsedChains = typeof rawChains === 'string'
+                                        ? (() => {
+                                            try {
+                                                return JSON.parse(rawChains);
+                                            } catch (e) {
+                                                return {};
+                                            }
+                                        })()
+                                        : (rawChains || {});
+                                    const existingAddress = parsedChains?.[oneInchChainKey];
+                                    const addressLinked = !!oneInchAddress && existingAddress?.toLowerCase() === oneInchAddress.toLowerCase();
+
+                                    return (
+                                        <tr
+                                            key={token.address || symbol}
+                                            className={`${inDb ? 'matched-row' : ''} ${isSelected ? 'selected-row' : ''}`}
+                                            onClick={() => onSelectSymbol(symbol)}
+                                        >
+                                            <td className="symbol-cell"><strong>{symbol || '—'}</strong></td>
+                                            <td>{token?.name || symbol}</td>
+                                            <td>{inDb ? '✅' : '—'}</td>
+                                            <td>{hasUuid ? rapidCoin.uuid : '—'}</td>
+                                            <td>
+                                                <button
+                                                    className="import-btn"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onAddFromOneInch(symbol);
+                                                    }}
+                                                    disabled={isAddingFromOneInch || addressLinked}
+                                                >
+                                                    {addressLinked
+                                                        ? 'Linked'
+                                                        : inDb
+                                                        ? 'Update Chain'
+                                                        : isAddingFromOneInch
+                                                        ? 'Adding...'
+                                                        : 'Add'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div className="oneinch-details-grid">
+                <div className="details-panel">
+                    <h4>DB Token Details</h4>
+                    {!selectedSymbol && <div className="muted">Select a token to view DB data.</div>}
+                    {selectedSymbol && !selectedDb && (
+                        <div className="muted">No DB data for {selectedSymbol}.</div>
+                    )}
+                    {selectedDb && (
+                        <AdminTokenDetails token={selectedDb} onRefresh={onRefresh} autoEdit />
+                    )}
+                </div>
+                <div className="details-panel">
+                    <h4>RapidAPI Pricing</h4>
+                    {!selectedSymbol && <div className="muted">Select a token to view RapidAPI data.</div>}
+                    {selectedSymbol && !selectedRapid && (
+                        <div className="muted">No RapidAPI data for {selectedSymbol}.</div>
+                    )}
+                    {selectedRapid && (
+                        <div className="details-list">
+                            <div><strong>Symbol:</strong> {selectedRapid.symbol || selectedSymbol}</div>
+                            <div><strong>Name:</strong> {selectedRapid.name || '—'}</div>
+                            <div><strong>UUID:</strong> {selectedRapid.uuid || '—'}</div>
+                            <div><strong>Price:</strong> {selectedRapid.price || '—'}</div>
+                            <div><strong>Market Cap:</strong> {selectedRapid.marketCap || '—'}</div>
+                            <div><strong>24h Volume:</strong> {selectedRapid.volume24h || '—'}</div>
+                            <div><strong>Change:</strong> {selectedRapid.change || '—'}</div>
+                            <div><strong>Rank:</strong> {selectedRapid.rank || '—'}</div>
+                        </div>
+                    )}
+                </div>
+                <div className="details-panel">
+                    <h4>1inch Token Data</h4>
+                    {!selectedSymbol && <div className="muted">Select a token to view 1inch data.</div>}
+                    {selectedSymbol && !selectedOneInch && (
+                        <div className="muted">No 1inch data for {selectedSymbol}.</div>
+                    )}
+                    {selectedOneInch && (
+                        <pre className="json-view">{JSON.stringify(selectedOneInch, null, 2)}</pre>
+                    )}
+                </div>
             </div>
         </>
     );
@@ -313,12 +840,14 @@ const VirtualizedAdminTokenTable = React.memo(function VirtualizedAdminTokenTabl
     tokens, 
     expandedRows,
     onToggleExpansion,
+    autoEditRows,
+    onOpenEditor,
     sortConfig,
     onSort,
     formatPrice,
     formatMarketCap,
-    onEdit,
-    dbTokenBySymbol
+    dbTokenBySymbol,
+    onRefresh
 }) {
     const Row = useCallback(({ index, style }) => {
         const token = tokens[index];
@@ -370,7 +899,7 @@ const VirtualizedAdminTokenTable = React.memo(function VirtualizedAdminTokenTabl
                         className="action-btn primary"
                         onClick={(e) => {
                             e.stopPropagation();
-                            onEdit(detailsToken);
+                                    onOpenEditor(tokenId);
                         }}
                     >
                         ✎ Edit
@@ -378,7 +907,7 @@ const VirtualizedAdminTokenTable = React.memo(function VirtualizedAdminTokenTabl
                 </td>
             </tr>
         );
-    }, [tokens, expandedRows, formatPrice, formatMarketCap, onEdit, onToggleExpansion, dbTokenBySymbol]);
+    }, [tokens, expandedRows, formatPrice, formatMarketCap, onToggleExpansion, dbTokenBySymbol]);
 
     return (
         <div className="virtualized-table">
@@ -447,7 +976,7 @@ const VirtualizedAdminTokenTable = React.memo(function VirtualizedAdminTokenTabl
                                             className="action-btn primary"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                onEdit(detailsToken);
+                                                onOpenEditor(tokenId);
                                             }}
                                         >
                                             ✎ Edit
@@ -458,7 +987,11 @@ const VirtualizedAdminTokenTable = React.memo(function VirtualizedAdminTokenTabl
                                 {isExpanded && (
                                     <tr className="details-row">
                                         <td colSpan="5">
-                                            <AdminTokenDetails token={detailsToken} onRefresh={() => {}} />
+                                            <AdminTokenDetails
+                                                token={detailsToken}
+                                                onRefresh={onRefresh}
+                                                autoEdit={autoEditRows?.has(tokenId)}
+                                            />
                                         </td>
                                     </tr>
                                 )}
@@ -472,9 +1005,9 @@ const VirtualizedAdminTokenTable = React.memo(function VirtualizedAdminTokenTabl
 });
 
 // Admin Token Details Component - Inline Editable with All Fields
-const AdminTokenDetails = React.memo(function AdminTokenDetails({ token, onRefresh }) {
+const AdminTokenDetails = React.memo(function AdminTokenDetails({ token, onRefresh, autoEdit = false }) {
     const { updateToken, loading: isSaving } = useTokenCrud();
-    const [isEditing, setIsEditing] = useState(false);
+    const [isEditing, setIsEditing] = useState(autoEdit);
     
     // Initialize editData with ALL token fields
     const [editData, setEditData] = useState(() => {
@@ -486,18 +1019,29 @@ const AdminTokenDetails = React.memo(function AdminTokenDetails({ token, onRefre
     const [saveStatus, setSaveStatus] = useState(null); // null, 'saving', 'success', 'error'
     const [saveError, setSaveError] = useState('');
 
-    const [customParams, setCustomParams] = useState(token.customParams || {});
+    const [customParams, setCustomParams] = useState(token.chains || {});
     const [newParamName, setNewParamName] = useState('');
     const [newParamValue, setNewParamValue] = useState('');
+
+    useEffect(() => {
+        setEditData({ ...token });
+        setCustomParams(token.chains || {});
+        if (autoEdit) {
+            setIsEditing(true);
+        }
+    }, [token, autoEdit]);
     
     const fieldOrder = useMemo(() => (
         [
-            { key: 'symbol', label: 'Symbol', type: 'text', readOnly: true },
+            { key: 'symbol', label: 'Symbol', type: 'text' },
             { key: 'name', label: 'Name', type: 'text' },
+            { key: 'price', label: 'Price', type: 'number' },
+            { key: 'market_cap', label: 'Market Cap', type: 'number' },
+            { key: 'volume_24h', label: '24h Volume', type: 'number' },
             { key: 'decimals', label: 'Decimals', type: 'number' },
             { key: 'type', label: 'Type', type: 'text' },
             { key: 'image', label: 'Image', type: 'text' },
-            { key: 'uuid', label: 'UUID', type: 'text', readOnly: true }
+            { key: 'uuid', label: 'UUID', type: 'text' }
         ]
     ), []);
 
@@ -521,11 +1065,16 @@ const AdminTokenDetails = React.memo(function AdminTokenDetails({ token, onRefre
         try {
             // Only send changed fields that are not read-only
             const changedData = {};
-            const editableKeys = new Set(['name', 'decimals', 'type', 'image']);
+            const editableKeys = new Set(['symbol', 'uuid', 'name', 'price', 'market_cap', 'volume_24h', 'decimals', 'type', 'image']);
             for (const [key, value] of Object.entries(editData)) {
                 if (editableKeys.has(key) && value !== token[key]) {
                     changedData[key] = value;
                 }
+            }
+
+            const currentCustomParams = token.chains || {};
+            if (JSON.stringify(customParams) !== JSON.stringify(currentCustomParams)) {
+                changedData.chains = customParams;
             }
             
             if (Object.keys(changedData).length === 0) {
@@ -649,6 +1198,11 @@ const AdminTokenDetails = React.memo(function AdminTokenDetails({ token, onRefre
                 onRemoveParam={removeCustomParameter}
                 onKeyDown={handleKeyDown}
             />
+
+            <div className="custom-params-preview">
+                <h4>Chains (JSON)</h4>
+                <pre className="json-view">{JSON.stringify(customParams || {}, null, 2)}</pre>
+            </div>
             
             {/* Addresses */}
             <AddressesSection addresses={token.addresses} />
@@ -786,6 +1340,9 @@ const ComparisonView = React.memo(function ComparisonView({
     tokens,
     selectedTokens,
     onSelectToken,
+    expandedRows,
+    onToggleExpansion,
+    onRefresh,
     toggleComparisonMode,
     setAddingToken,
     comparisonStats,
@@ -879,6 +1436,9 @@ const ComparisonView = React.memo(function ComparisonView({
                     selectedTokens={selectedTokens}
                     onSelectToken={onSelectToken}
                     viewMode={viewMode}
+                    expandedRows={expandedRows}
+                    onToggleExpansion={onToggleExpansion}
+                    onRefresh={onRefresh}
                 />
             </div>
         </>
@@ -890,7 +1450,10 @@ const VirtualizedComparisonTable = React.memo(function VirtualizedComparisonTabl
     tokens, 
     selectedTokens, 
     onSelectToken, 
-    viewMode 
+    viewMode,
+    expandedRows,
+    onToggleExpansion,
+    onRefresh
 }) {
     return (
         <div className="virtualized-comparison-table">
@@ -906,15 +1469,28 @@ const VirtualizedComparisonTable = React.memo(function VirtualizedComparisonTabl
                     </tr>
                 </thead>
                 <tbody>
-                    {tokens.map(item => (
-                        <ComparisonRow 
-                            key={item.symbol}
-                            item={item}
-                            isSelected={selectedTokens.some(t => (t.symbol || t.id) === (item.symbol || item.id))}
-                            onSelect={() => onSelectToken(item)}
-                            viewMode={viewMode}
-                        />
-                    ))}
+                    {tokens.map(item => {
+                        const isExpanded = expandedRows?.has(item.symbol);
+                        return (
+                            <React.Fragment key={item.symbol}>
+                                <ComparisonRow 
+                                    item={item}
+                                    isSelected={selectedTokens.some(t => (t.symbol || t.id) === (item.symbol || item.id))}
+                                    onSelect={() => onSelectToken(item)}
+                                    viewMode={viewMode}
+                                    isExpanded={isExpanded}
+                                    onToggleExpand={() => onToggleExpansion(item.symbol)}
+                                />
+                                {isExpanded && item.inDatabase && item.database && (
+                                    <tr className="details-row">
+                                        <td colSpan="6">
+                                            <AdminTokenDetails token={item.database} onRefresh={onRefresh} autoEdit />
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
@@ -922,7 +1498,7 @@ const VirtualizedComparisonTable = React.memo(function VirtualizedComparisonTabl
 });
 
 // Comparison Row Component
-const ComparisonRow = React.memo(function ComparisonRow({ item, isSelected, onSelect, viewMode }) {
+const ComparisonRow = React.memo(function ComparisonRow({ item, isSelected, onSelect, viewMode, isExpanded, onToggleExpand }) {
     const { symbol, inDatabase, inJson, database, json, match } = item;
     
     const getRowClass = useCallback(() => {
@@ -950,12 +1526,18 @@ const ComparisonRow = React.memo(function ComparisonRow({ item, isSelected, onSe
     const rowClass = getRowClass();
     
     return (
-        <tr className={`${rowClass} ${isSelected ? 'selected' : ''}`}>
+        <tr
+            className={`${rowClass} ${isSelected ? 'selected' : ''}`}
+            onClick={() => {
+                if (inDatabase) onToggleExpand();
+            }}
+        >
             <td>
                 <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={onSelect}
+                    onClick={(e) => e.stopPropagation()}
                 />
             </td>
             <td className="symbol-cell">
@@ -1000,9 +1582,6 @@ const ComparisonRow = React.memo(function ComparisonRow({ item, isSelected, onSe
             </td>
             
             <td className="actions-col">
-                {inDatabase && (
-                    <button className="edit-btn">Edit</button>
-                )}
                 {!inDatabase && inJson && (
                     <button className="import-btn">Import</button>
                 )}

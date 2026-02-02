@@ -101,6 +101,37 @@ module.exports = (pool) => {
         return result.rows[0] || null;
     };
 
+    // ======== TOKEN TABLE META ========
+    let tokenTableColumnsCache = null;
+
+    const getTokenTableColumns = async () => {
+        if (tokenTableColumnsCache) return tokenTableColumnsCache;
+        try {
+            const result = await pool.query(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'tokens'"
+            );
+            const columns = new Set(result.rows.map(row => row.column_name));
+            tokenTableColumnsCache = columns;
+            return columns;
+        } catch (error) {
+            tokenTableColumnsCache = new Set();
+            return tokenTableColumnsCache;
+        }
+    };
+
+    const ensureChainsColumn = async () => {
+        const columns = await getTokenTableColumns();
+        if (columns.has('chains')) return;
+        try {
+            await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS chains JSONB');
+            tokenTableColumnsCache = null;
+            await getTokenTableColumns();
+            console.log('[tokens] added chains JSONB column');
+        } catch (error) {
+            console.error('[tokens] failed to add chains column:', error.message);
+        }
+    };
+
     const getTokenAddressesMap = async () => {
         const meta = await getTokenAddressMeta();
         const byTokenId = new Map();
@@ -565,19 +596,67 @@ module.exports = (pool) => {
     // POST create new token
     router.post('/', async (req, res) => {
         try {
-            const { symbol, name, price, market_cap, volume_24h } = req.body;
+            await ensureChainsColumn();
+            const {
+                symbol,
+                name,
+                price,
+                market_cap,
+                volume_24h,
+                decimals,
+                type,
+                image,
+                uuid,
+                rapidapi_data,
+                oneinch_data,
+                chains
+            } = req.body;
+
+            console.log('[tokens] create request', {
+                symbol,
+                fields: Object.keys(req.body || {})
+            });
             
             // Validate required fields
             if (!symbol || !name) {
                 return res.status(400).json({ error: 'Symbol and name are required' });
             }
 
-            const result = await pool.query(
-                `INSERT INTO tokens (symbol, name, price, market_cap, volume_24h, created_at, updated_at) 
-                 VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
-                 RETURNING *`,
-                [symbol.toUpperCase(), name, price || 0, market_cap || 0, volume_24h || 0]
-            );
+            const columns = await getTokenTableColumns();
+            const insertColumns = [];
+            const values = [];
+
+            const addField = (col, value) => {
+                if (!columns.has(col)) return;
+                if (value === undefined) return;
+                insertColumns.push(col);
+                values.push(value);
+            };
+
+            addField('symbol', symbol.toUpperCase());
+            addField('name', name);
+            addField('price', price || 0);
+            addField('market_cap', market_cap || 0);
+            addField('volume_24h', volume_24h || 0);
+            addField('decimals', decimals || 18);
+            addField('type', type || 'ERC-20');
+            addField('image', image);
+            addField('uuid', uuid);
+            addField('rapidapi_data', rapidapi_data);
+            addField('oneinch_data', oneinch_data);
+            addField('chains', chains);
+            addField('created_at', new Date());
+            addField('updated_at', new Date());
+
+            if (!insertColumns.includes('symbol') || !insertColumns.includes('name')) {
+                return res.status(500).json({ error: 'Tokens table schema missing required columns' });
+            }
+
+            const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
+            const query = `INSERT INTO tokens (${insertColumns.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+            const result = await pool.query(query, values);
+
+            console.log('[tokens] create response', { symbol: result.rows[0]?.symbol });
             
             res.status(201).json(result.rows[0]);
         } catch (error) {
@@ -597,19 +676,41 @@ module.exports = (pool) => {
         try {
             const { symbol } = req.params;
             const updateData = req.body;
+
+            await ensureChainsColumn();
+
+            console.log('[tokens] update request', {
+                symbol,
+                fields: Object.keys(updateData || {})
+            });
             
             // Build dynamic SET clause - exclude symbol as it's immutable
             const allowedFields = [
-                'name', 'price', 'market_cap', 'volume_24h', 'type', 'decimals',
-                'address', 'image', 'ticker', 'rank', 'change'
+                'symbol', 'name', 'price', 'market_cap', 'volume_24h', 'type', 'decimals',
+                'address', 'image', 'ticker', 'rank', 'change',
+                'uuid', 'rapidapi_data', 'oneinch_data', 'chains'
             ];
             
+            const existingToken = await getTokenBySymbol(symbol);
+            if (!existingToken) {
+                return res.status(404).json({ error: 'Token not found' });
+            }
+
+            const mergedData = { ...existingToken, ...updateData };
+
             const setClause = [];
             const values = [symbol];
             let paramCount = 2;
             
-            for (const [key, value] of Object.entries(updateData)) {
-                if (allowedFields.includes(key) && value !== undefined && value !== null) {
+            const columns = await getTokenTableColumns();
+
+            for (const [key, value] of Object.entries(mergedData)) {
+                if (
+                    allowedFields.includes(key) &&
+                    columns.has(key) &&
+                    value !== undefined &&
+                    value !== null
+                ) {
                     setClause.push(`${key} = $${paramCount}`);
                     values.push(value);
                     paramCount++;
@@ -619,8 +720,10 @@ module.exports = (pool) => {
             if (setClause.length === 0) {
                 return res.status(400).json({ error: 'No valid fields to update' });
             }
-            
-            setClause.push(`updated_at = NOW()`);
+
+            if (columns.has('updated_at')) {
+                setClause.push(`updated_at = NOW()`);
+            }
             
             const query = `UPDATE tokens 
                           SET ${setClause.join(', ')}
@@ -628,6 +731,8 @@ module.exports = (pool) => {
                           RETURNING *`;
             
             const result = await pool.query(query, values);
+
+            console.log('[tokens] update response', { symbol: result.rows[0]?.symbol });
             
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: 'Token not found' });
@@ -644,6 +749,8 @@ module.exports = (pool) => {
     router.delete('/:symbol', async (req, res) => {
         try {
             const { symbol } = req.params;
+
+            console.log('[tokens] delete request', { symbol });
             
             const result = await pool.query(
                 'DELETE FROM tokens WHERE LOWER(symbol) = LOWER($1) RETURNING *',

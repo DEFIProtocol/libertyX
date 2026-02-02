@@ -24,7 +24,12 @@ export const useTokenCrud = () => {
                 market_cap: parseFloat(tokenData.market_cap) || 0,
                 volume_24h: parseFloat(tokenData.volume_24h) || 0,
                 decimals: parseInt(tokenData.decimals) || 18,
-                type: tokenData.type || 'ERC-20'
+                type: tokenData.type || 'ERC-20',
+                image: tokenData.image,
+                uuid: tokenData.uuid,
+                rapidapi_data: tokenData.rapidapi_data,
+                oneinch_data: tokenData.oneinch_data,
+                chains: tokenData.chains
             });
 
             return {
@@ -49,15 +54,38 @@ export const useTokenCrud = () => {
         try {
             setLoading(true);
             setError(null);
+            const payload = {};
 
-            const response = await axios.put(`${API_URL}/${symbol}`, {
-                name: tokenData.name,
-                price: parseFloat(tokenData.price) || 0,
-                market_cap: parseFloat(tokenData.market_cap) || 0,
-                volume_24h: parseFloat(tokenData.volume_24h) || 0,
-                decimals: parseInt(tokenData.decimals) || 18,
-                type: tokenData.type || 'ERC-20'
-            });
+            if (tokenData.symbol !== undefined) payload.symbol = tokenData.symbol;
+            if (tokenData.uuid !== undefined) payload.uuid = tokenData.uuid;
+            if (tokenData.name !== undefined) payload.name = tokenData.name;
+            if (tokenData.type !== undefined) payload.type = tokenData.type;
+            if (tokenData.image !== undefined) payload.image = tokenData.image;
+            if (tokenData.rapidapi_data !== undefined) payload.rapidapi_data = tokenData.rapidapi_data;
+            if (tokenData.oneinch_data !== undefined) payload.oneinch_data = tokenData.oneinch_data;
+            if (tokenData.chains !== undefined) payload.chains = tokenData.chains;
+
+            if (tokenData.decimals !== undefined && tokenData.decimals !== '') {
+                const decimals = parseInt(tokenData.decimals);
+                if (!Number.isNaN(decimals)) payload.decimals = decimals;
+            }
+
+            if (tokenData.price !== undefined && tokenData.price !== '') {
+                const price = parseFloat(tokenData.price);
+                if (!Number.isNaN(price)) payload.price = price;
+            }
+
+            if (tokenData.market_cap !== undefined && tokenData.market_cap !== '') {
+                const marketCap = parseFloat(tokenData.market_cap);
+                if (!Number.isNaN(marketCap)) payload.market_cap = marketCap;
+            }
+
+            if (tokenData.volume_24h !== undefined && tokenData.volume_24h !== '') {
+                const volume = parseFloat(tokenData.volume_24h);
+                if (!Number.isNaN(volume)) payload.volume_24h = volume;
+            }
+
+            const response = await axios.put(`${API_URL}/${symbol}`, payload);
 
             return {
                 success: true,

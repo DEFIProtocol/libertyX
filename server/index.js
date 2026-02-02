@@ -35,17 +35,20 @@ pool.connect((err, client, release) => {
 app.set('pool', pool);
 
 // Middleware
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 
 // Import routes
 const tokensRoutes = require('./routes/tokens')(pool);
 const binanceRoutes = require('./routes/binance');
+const oneInchRoutes = require('./routes/oneinch');
 const globalPricesRoutes = require('./routes/globalPrices');
 
 // API Routes
 app.use('/api/tokens', tokensRoutes);
 app.use('/api/binance', binanceRoutes);
+app.use('/api/oneinch', oneInchRoutes);
 app.use('/api/global-prices', globalPricesRoutes(pool));
 
 // Add RapidAPI routes with rate limiting and caching
@@ -113,7 +116,6 @@ const connectBinanceWs = () => {
 
     binanceWs.on('open', () => {
         binanceWsConnected = true;
-        console.log('✅ Connected to Binance miniTicker stream');
     });
 
     binanceWs.on('message', (data) => {
@@ -142,8 +144,6 @@ const connectBinanceWs = () => {
                 const now = Date.now();
                 if (now - lastBinanceLog > 5000) {
                     lastBinanceLog = now;
-                    console.log(`📦 Binance miniTicker array size: ${parsed.length}`);
-                    console.log('📌 Binance miniTicker sample:', parsed[0]);
                 }
             }
         } catch (error) {
@@ -159,13 +159,11 @@ const connectBinanceWs = () => {
 
     binanceWs.on('close', (code, reason) => {
         binanceWsConnected = false;
-        console.log(`🔌 Binance miniTicker stream closed (${code}) ${reason?.toString() || ''}. Reconnecting in 3s...`);
         setTimeout(connectBinanceWs, 3000);
     });
 
     binanceWs.on('error', (error) => {
         binanceWsConnected = false;
-        console.error('❌ Binance miniTicker stream error:', error.message);
         try {
             binanceWs.close();
         } catch (e) {
@@ -179,15 +177,11 @@ wss.on('connection', (ws) => {
     wsClients.add(ws);
     connectBinanceWs();
 
-    console.log('🔗 Client connected to /ws/binance');
-
     ws.on('error', (error) => {
-        console.error('❌ Client WS error:', error.message);
     });
 
     ws.on('close', () => {
         wsClients.delete(ws);
-        console.log('🔌 Client disconnected from /ws/binance');
     });
 });
 
