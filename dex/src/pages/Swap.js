@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useTokens } from '../contexts/TokenContext';
+import { useChainContext } from '../contexts/ChainContext';
 import { useSendTransaction, useWaitForTransaction } from 'wagmi';
 import './Swap.css';
 
 function Swap({ address, isConnect }) {
   const { displayTokens } = useTokens();
+  const { selectedChain, setSelectedChain } = useChainContext();
   
   // UI State
   const [slippage, setSlippage] = useState(2.5);
-  const [chain, setChain] = useState('Ethereum');
-  const [chainId, setChainId] = useState('1');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -23,13 +23,65 @@ function Swap({ address, isConnect }) {
   const [tokenTwo, setTokenTwo] = useState(null);
   const [prices, setPrices] = useState(null);
   
-  // Initialize tokens
+  const chainTokens = useMemo(() => {
+    const chainKeyMap = {
+      '1': ['ethereum'],
+      '56': ['bnb', 'bsc', 'binance'],
+      '137': ['polygon'],
+      '43114': ['avalanche'],
+      '42161': ['arbitrum'],
+      '501': ['solana']
+    };
+
+    const normalizeChains = (rawChains) => {
+      if (!rawChains) return {};
+      if (typeof rawChains === 'string') {
+        try {
+          return JSON.parse(rawChains);
+        } catch (e) {
+          return {};
+        }
+      }
+      return rawChains || {};
+    };
+
+    return (displayTokens || [])
+      .map((token) => {
+        if (!token) return null;
+        const chains = normalizeChains(token.chains || token.addresses);
+        const chainKey = String(selectedChain || '');
+        const aliasKeys = chainKeyMap[chainKey] || [];
+        const resolvedAddress =
+          chains?.[chainKey] ||
+          aliasKeys.map((key) => chains?.[key]).find(Boolean) ||
+          token.address;
+
+        if (!resolvedAddress) return null;
+
+        return {
+          ...token,
+          address: resolvedAddress,
+          symbol: token.symbol || token.ticker,
+          name: token.name || token.symbol || token.ticker,
+          icon: token.icon || token.image || token.img
+        };
+      })
+      .filter(Boolean);
+  }, [displayTokens, selectedChain]);
+
+  // Initialize tokens for selected chain
   useEffect(() => {
-    if (displayTokens && displayTokens.length > 0) {
-      setTokenOne(displayTokens[0]);
-      setTokenTwo(displayTokens[1] || displayTokens[0]);
+    if (chainTokens && chainTokens.length > 0) {
+      setTokenOne(chainTokens[0]);
+      setTokenTwo(chainTokens[1] || chainTokens[0]);
+    } else {
+      setTokenOne(null);
+      setTokenTwo(null);
     }
-  }, [displayTokens]);
+    setPrices(null);
+    setTokenOneAmount('');
+    setTokenTwoAmount('');
+  }, [chainTokens]);
   
   // Transaction State
   const [txDetails, setTxDetails] = useState({
@@ -60,20 +112,20 @@ function Swap({ address, isConnect }) {
 
   // Calculate price ratio between two tokens
   const fetchPrices = useCallback(async (tokenOneUuid, tokenTwoUuid) => {
-    if (!displayTokens) return;
+    if (!chainTokens) return;
     
-    const firstToken = displayTokens.find((token) => token.uuid === tokenOneUuid);
-    const secondToken = displayTokens.find((token) => token.uuid === tokenTwoUuid);
+    const firstToken = chainTokens.find((token) => token.uuid === tokenOneUuid || token.symbol === tokenOneUuid);
+    const secondToken = chainTokens.find((token) => token.uuid === tokenTwoUuid || token.symbol === tokenTwoUuid);
     
     if (firstToken && secondToken) {
-      const priceRatio = firstToken.price / secondToken.price;
+      const priceRatio = parseFloat(firstToken.price) / parseFloat(secondToken.price);
       setPrices({
         priceRatio: priceRatio,
-        firstTokenPrice: firstToken.price,
-        secondTokenPrice: secondToken.price,
+        firstTokenPrice: parseFloat(firstToken.price),
+        secondTokenPrice: parseFloat(secondToken.price),
       });
     }
-  }, [displayTokens]);
+  }, [chainTokens]);
 
   // Handle amount change and auto-calculate second token amount
   const handleAmountChange = (e) => {
@@ -107,13 +159,13 @@ function Swap({ address, isConnect }) {
   const selectToken = (token) => {
     if (modalMode === 1) {
       setTokenOne(token);
-      if (tokenTwo && tokenTwo.uuid !== token.uuid) {
-        fetchPrices(token.uuid, tokenTwo.uuid);
+      if (tokenTwo && (tokenTwo.uuid || tokenTwo.symbol) !== (token.uuid || token.symbol)) {
+        fetchPrices(token.uuid || token.symbol, tokenTwo.uuid || tokenTwo.symbol);
       }
     } else {
       setTokenTwo(token);
-      if (tokenOne && tokenOne.uuid !== token.uuid) {
-        fetchPrices(tokenOne.uuid, token.uuid);
+      if (tokenOne && (tokenOne.uuid || tokenOne.symbol) !== (token.uuid || token.symbol)) {
+        fetchPrices(tokenOne.uuid || tokenOne.symbol, token.uuid || token.symbol);
       }
     }
     setIsModalOpen(false);
@@ -145,7 +197,7 @@ function Swap({ address, isConnect }) {
   // Fetch quote from 1inch
   const fetchQuote = async (srcToken, dstToken, amount) => {
     const response = await axios.get(
-      `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${chainId}/quote?src=${srcToken.address}&dst=${dstToken.address}&amount=${amount}&fee=1&includeTokensInfo=true&includeGas=true`,
+      `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/quote?src=${srcToken.address}&dst=${dstToken.address}&amount=${amount}&fee=1&includeTokensInfo=true&includeGas=true`,
       axiosHeaders
     );
     return response.data;
@@ -172,13 +224,13 @@ function Swap({ address, isConnect }) {
     try {
       setLoading(true);
       const allowanceResponse = await axios.get(
-        `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${chainId}/approve/allowance?tokenAddress=${src.address}&walletAddress=${address}`,
+        `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/approve/allowance?tokenAddress=${src.address}&walletAddress=${address}`,
         axiosHeaders
       );
 
       if (allowanceResponse.data.allowance === '0') {
         const approveResponse = await axios.get(
-          `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${chainId}/approve/transaction?tokenAddress=${src.address}&amount=${amount}`,
+          `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/approve/transaction?tokenAddress=${src.address}&amount=${amount}`,
           axiosHeaders
         );
         setTxDetails(approveResponse.data);
@@ -199,7 +251,7 @@ function Swap({ address, isConnect }) {
   // Execute swap transaction
   const executeTransaction = async (src, dst, quoteResponse, amount) => {
     return await axios.get(
-      `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${chainId}/swap?src=${src.address}&dst=${dst.address}&amount=${amount}&from=${address}&slippage=${slippage}&fee=1&referrer=${process.env.REACT_APP_ADMIN_ADDRESS}&receiver=${address}`,
+      `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/swap?src=${src.address}&dst=${dst.address}&amount=${amount}&from=${address}&slippage=${slippage}&fee=1&referrer=${process.env.REACT_APP_ADMIN_ADDRESS}&receiver=${address}`,
       axiosHeaders
     );
   };
@@ -232,6 +284,10 @@ function Swap({ address, isConnect }) {
     setTimeout(() => setMessage(null), 3000);
   };
 
+  if (!chainTokens?.length) {
+    return <div className="swap-page">No tokens available for this chain.</div>;
+  }
+
   if (!tokenOne || !tokenTwo) {
     return <div className="swap-page">Loading tokens...</div>;
   }
@@ -242,18 +298,29 @@ function Swap({ address, isConnect }) {
 
       {/* Chain Selector */}
       <div className="chain-selector">
-        {['Ethereum', 'Binance', 'Polygon'].map((c) => (
+        <div className="chain-row primary">
+          {[
+            { id: '1', label: 'Ethereum' },
+            { id: '56', label: 'BNB' },
+            { id: '137', label: 'Polygon' }
+          ].map((c) => (
+            <button
+              key={c.id}
+              className={`chain-btn ${selectedChain === c.id ? 'active' : ''}`}
+              onClick={() => setSelectedChain(c.id)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <div className="chain-row secondary">
           <button
-            key={c}
-            className={`chain-btn ${chain === c ? 'active' : ''}`}
-            onClick={() => {
-              setChain(c);
-              setChainId(c === 'Ethereum' ? '1' : c === 'Binance' ? '56' : '137');
-            }}
+            className={`chain-btn solana ${selectedChain === '501' ? 'active' : ''}`}
+            onClick={() => setSelectedChain('501')}
           >
-            {c}
+            Solana
           </button>
-        ))}
+        </div>
       </div>
 
       {/* Main Swap Card */}
@@ -350,19 +417,23 @@ function Swap({ address, isConnect }) {
               <button className="close-btn" onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
             <div className="token-list">
-              {displayTokens?.map((token) => (
-                <button
-                  key={token.uuid}
-                  className="token-item"
-                  onClick={() => selectToken(token)}
-                >
-                  {token.icon && <img src={token.icon} alt={token.symbol} />}
-                  <div className="token-info">
-                    <div className="token-name">{token.name}</div>
-                    <div className="token-symbol">{token.symbol}</div>
-                  </div>
-                </button>
-              ))}
+              {chainTokens?.length ? (
+                chainTokens.map((token) => (
+                  <button
+                    key={token.uuid || token.symbol || token.address}
+                    className="token-item"
+                    onClick={() => selectToken(token)}
+                  >
+                    {token.icon && <img src={token.icon} alt={token.symbol} />}
+                    <div className="token-info">
+                      <div className="token-name">{token.name}</div>
+                      <div className="token-symbol">{token.symbol}</div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="no-data">No tokens for this chain</div>
+              )}
             </div>
           </div>
         </div>

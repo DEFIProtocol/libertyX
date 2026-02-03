@@ -53,8 +53,40 @@
 /* Chain Selector */
 .chain-selector {
   display: flex;
+  flex-direction: column;
   gap: 12px;
   margin-bottom: 40px;
+  width: 100%;
+  max-width: 520px;
+  align-items: center;
+}
+
+.chain-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.chain-row.secondary {
+  margin-top: 6px;
+  padding-top: 14px;
+  position: relative;
+}
+
+.chain-row.secondary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--border) 80%, transparent),
+    transparent
+  );
 }
 
 .chain-btn {
@@ -67,6 +99,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  min-width: 130px;
 }
 
 .chain-btn:hover {
@@ -79,6 +112,10 @@
   color: var(--accent);
   border-color: var(--accent);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.chain-btn.solana {
+  min-width: 160px;
 }
 
 /* Main Swap Card */
