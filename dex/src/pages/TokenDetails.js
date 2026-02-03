@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTokens } from '../contexts/TokenContext';
 import { useGetCryptoDetailsQuery, useGetCryptoHistoryQuery } from '../hooks';
@@ -9,6 +9,7 @@ function TokenDetails() {
   const { uuid } = useParams();
   const navigate = useNavigate();
   const { displayTokens } = useTokens();
+  const [timePeriod, setTimePeriod] = useState('24h');
 
   // Fetch detailed coin data from RapidAPI
   const {
@@ -23,7 +24,7 @@ function TokenDetails() {
     isFetching: historyLoading,
     error: historyError,
     refetch: refetchHistory
-  } = useGetCryptoHistoryQuery(uuid, '24h');
+  } = useGetCryptoHistoryQuery(uuid, timePeriod);
 
   // Extract coin details from response
   const coinDetails = useMemo(() => {
@@ -247,6 +248,8 @@ function TokenDetails() {
         loading={historyLoading}
         error={historyError}
         refetchHistory={refetchHistory}
+        timePeriod={timePeriod}
+        onTimePeriodChange={setTimePeriod}
       />
 
       {/* Description Section */}

@@ -32,11 +32,36 @@ ChartJS.register(
  *  - coinName (string): Name of coin for display
  *  - timePeriod (string): Initial time period ('24h', '7d', '30d', '1y', '5y')
  */
-function StandardChart({ coinHistory, loading, error, refetchHistory }) {
-    const history = coinHistory?.data?.history || [];
+const DEFAULT_PERIODS = [
+    { label: '24H', value: '24h' },
+    { label: '7D', value: '7d' },
+    { label: '30D', value: '30d' },
+    { label: '1Y', value: '1y' },
+    { label: '5Y', value: '5y' },
+];
 
-    const chartLabels = history.map(point => moment.unix(point.timestamp).format('YYYY-MM-DD'));
-    const chartPrices = history.map(point => Number(point.price));
+function StandardChart({
+    coinHistory,
+    loading,
+    error,
+    refetchHistory,
+    timePeriod,
+    onTimePeriodChange,
+    periodOptions = DEFAULT_PERIODS,
+}) {
+    const history = coinHistory?.data?.history || [];
+    const normalizedHistory = history
+        .map((point) => {
+            const price = Number.parseFloat(point?.price);
+            return {
+                timestamp: point?.timestamp,
+                price,
+            };
+        })
+        .filter((point) => Number.isFinite(point.price) && point.price > 0 && point.timestamp != null);
+
+    const chartLabels = normalizedHistory.map(point => moment.unix(point.timestamp).format('YYYY-MM-DD'));
+    const chartPrices = normalizedHistory.map(point => point.price);
 
     const data = {
         labels: [...chartLabels].reverse(),
@@ -107,48 +132,71 @@ function StandardChart({ coinHistory, loading, error, refetchHistory }) {
         },
     };
   
-    // Error state
-    if (error) {
-        return (
-            <div className="chart-container error">
+    const containerClassName = [
+        'chart-container',
+        loading ? 'loading' : '',
+        error ? 'error' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const renderBody = () => {
+        if (error) {
+            return (
                 <div className="chart-error">
                     <p>Unable to load price history</p>
                     <button onClick={() => refetchHistory()} className="retry-btn">
                         Retry
                     </button>
                 </div>
-            </div>
-        );
-    }
-  
-    // Loading state
-    if (loading) {
-        return (
-            <div className="chart-container loading">
+            );
+        }
+
+        if (loading) {
+            return (
                 <div className="chart-loading">
                     <div className="spinner"></div>
                     <p>Loading price history...</p>
                 </div>
-            </div>
-        );
-    }
-  
-    // No data state
-    if (!history || history.length === 0) {
-        return (
-            <div className="chart-container">
+            );
+        }
+
+        if (!normalizedHistory || normalizedHistory.length === 0) {
+            return (
                 <div className="chart-empty">
                     <p>No price history available</p>
                 </div>
-            </div>
-        );
-    }
-  
-    return (
-        <div className="chart-container">
+            );
+        }
+
+        return (
             <div style={{ height: 360, width: '100%' }}>
                 <Line data={data} options={options} />
             </div>
+        );
+    };
+
+    return (
+        <div className={containerClassName}>
+            <div className="chart-header">
+                <div className="chart-title">
+                    <h3>Price History</h3>
+                </div>
+                <div className="period-selector">
+                    {periodOptions.map((period) => (
+                        <button
+                            key={period.value}
+                            type="button"
+                            className={`period-btn ${timePeriod === period.value ? 'active' : ''}`}
+                            onClick={() => onTimePeriodChange?.(period.value)}
+                            disabled={!onTimePeriodChange || loading}
+                        >
+                            {period.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            {renderBody()}
         </div>
     );
 }
