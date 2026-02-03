@@ -65,7 +65,7 @@ header {
 }
 
 .headerItem:hover {
-  background-color: #181818;
+  background-color: var(--surface-2);
   cursor: pointer;
 }
 
@@ -126,7 +126,7 @@ header {
 .navOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -146,7 +146,7 @@ header {
 .navClose { cursor:pointer; padding:4px 8px; border-radius:8px }
 .navList { display:flex; flex-direction:column; gap:10px }
 .navItem { padding:12px; border-radius:10px; background:transparent; color:var(--text); font-weight:700 }
-.navItem:hover { background: rgba(255,255,255,0.02) }
+.navItem:hover { background: color-mix(in srgb, var(--text) 6%, transparent) }
 
 .tradeBox {
   width: 400px;
@@ -176,7 +176,7 @@ header {
 }
 
 .cog:hover {
-  color: white;
+  color: var(--text);
   rotate: 90deg;
   cursor: pointer;
 }
@@ -207,7 +207,7 @@ header {
 }
 
 .switchButton:hover {
-  color: white;
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -279,14 +279,14 @@ header {
 }
 
 .swapButton[disabled] {
-  background-color: #f4f4f44f;
+  background-color: color-mix(in srgb, var(--surface-2) 85%, transparent);
   opacity: 0.4;
-  color: #181818;
+  color: var(--text-muted);
 }
 
 .swapButton[disabled]:hover {
   cursor: not-allowed;
-  background-color: #f4f4f44f;
+  background-color: color-mix(in srgb, var(--surface-2) 85%, transparent);
 }
 
 .swapButton:hover {
@@ -319,7 +319,7 @@ header {
 
 .tokenChoice:hover {
   cursor: pointer;
-  background-color: rgba(255, 255, 255, 0.048);
+  background-color: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
 .tokenName {
@@ -345,7 +345,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.45);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   z-index: 9999;
 }
@@ -358,8 +358,8 @@ header {
   min-width: 320px;
   max-width: 420px;
   width: 90%;
-  background: linear-gradient(180deg, var(--surface) 0%, rgba(7,16,35,0.6) 100%);
-  border: 1px solid var(--muted);
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 60%, var(--bg) 40%) 100%);
+  border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: 0 10px 30px rgba(2,6,23,0.6);
   color: var(--text);
@@ -389,7 +389,7 @@ header {
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s;
 }
-.closeButton:hover { transform: scale(1.05); background: rgba(255,255,255,0.02); }
+.closeButton:hover { transform: scale(1.05); background: color-mix(in srgb, var(--text) 6%, transparent); }
 
 .modalBody {
   display: flex;
@@ -419,7 +419,7 @@ header {
 
 .walletOption:active { transform: translateY(-1px) scale(0.995); }
 
-.modalError { color: #ff8b8b; margin-top: 8px; font-size: 13px; }
+.modalError { color: color-mix(in srgb, var(--danger) 80%, var(--text) 20%); margin-top: 8px; font-size: 13px; }
 
 .themeToggle {
   background: var(--surface);
@@ -435,7 +435,7 @@ header {
 
 .chainSelect {
   background: transparent;
-  color: #ffffff;
+  color: var(--text);
   border: none;
   font-weight: 700;
   font-size: 14px;
@@ -444,23 +444,23 @@ header {
 }
 
 .chainSelect:hover {
-  color: #99c800;
+  color: var(--accent);
 }
 
 .chainSelect:focus { 
   outline: none;
-  color: #99c800;
+  color: var(--accent);
 }
 
 .chainSelect option {
-  background: #333;
-  color: #ffffff;
+  background: var(--surface-2);
+  color: var(--text);
   font-weight: 600;
 }
 
 .chainSelect option:checked {
-  background: #99c800;
-  color: #333;
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
 
 @media (max-width: 420px) {

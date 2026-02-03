@@ -1,11 +1,12 @@
 /* Chart Container */
 .chart-container {
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
   padding: 20px;
   margin: 20px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 70%, transparent);
   transition: all 0.3s ease;
+  border: 1px solid var(--border);
 }
 
 .chart-container.loading {
@@ -14,8 +15,8 @@
 }
 
 .chart-container.error {
-  border: 1px solid #fee2e2;
-  background: #fef2f2;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border) 60%);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface) 90%);
 }
 
 /* Chart Header */
@@ -38,7 +39,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text);
 }
 
 .price-stat {
@@ -48,11 +49,11 @@
 }
 
 .price-stat.positive .price {
-  color: #10b981;
+  color: var(--success);
 }
 
 .price-stat.negative .price {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .price-stat .price {
@@ -66,15 +67,15 @@
 }
 
 .price-stat.positive .change {
-  color: #10b981;
-  background: #ecfdf5;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, var(--surface) 88%);
   padding: 2px 8px;
   border-radius: 4px;
 }
 
 .price-stat.negative .change {
-  color: #ef4444;
-  background: #fef2f2;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface) 88%);
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -88,10 +89,10 @@
 
 .period-btn {
   padding: 6px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
-  color: #6b7280;
+  background: var(--surface);
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -99,15 +100,15 @@
 }
 
 .period-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
-  background: #f0f7ff;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
 }
 
 .period-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
 }
 
 /* Chart Wrapper */
@@ -115,7 +116,7 @@
   width: 100%;
   margin: 20px 0;
   overflow-x: auto;
-  background: #fafafa;
+  background: var(--surface-2);
   border-radius: 8px;
   padding: 10px 0;
 }
@@ -128,13 +129,13 @@
 }
 
 .chart-svg .grid line {
-  stroke: #e5e7eb;
+  stroke: var(--border);
   stroke-width: 1;
 }
 
 .chart-svg .axis-label {
   font-size: 11px;
-  fill: #9ca3af;
+  fill: var(--text-muted);
   font-weight: 500;
 }
 
@@ -148,14 +149,14 @@
   justify-content: center;
   min-height: 300px;
   gap: 15px;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .chart-loading .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #e5e7eb;
-  border-top-color: #3b82f6;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -167,18 +168,18 @@
 .chart-loading p,
 .chart-empty p {
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 .chart-error p {
   font-size: 14px;
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .retry-btn {
   padding: 8px 16px;
-  background: #ef4444;
-  color: white;
+  background: var(--danger);
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -188,7 +189,7 @@
 }
 
 .retry-btn:hover {
-  background: #dc2626;
+  background: color-mix(in srgb, var(--danger) 80%, #000 20%);
 }
 
 /* Chart Statistics */
@@ -198,7 +199,7 @@
   gap: 15px;
   margin-top: 20px;
   padding: 15px;
-  background: #f9fafb;
+  background: var(--surface-2);
   border-radius: 8px;
 }
 
@@ -209,7 +210,7 @@
 .stat-item label {
   display: block;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
   font-weight: 500;
   margin-bottom: 5px;
   text-transform: uppercase;
@@ -220,7 +221,7 @@
   display: block;
   font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text);
 }
 
 /* Chart Labels */
@@ -230,7 +231,7 @@
   margin-top: 10px;
   padding: 0 40px;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-muted);
   opacity: 0.6;
 }
 

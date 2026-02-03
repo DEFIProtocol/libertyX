@@ -199,11 +199,11 @@ function StandardChart({ coinId, coinName = 'Crypto', timePeriod: initialPeriod 
         >
           {/* Grid lines */}
           <g className="grid">
-            <line x1="40" y1="250" x2="560" y2="250" stroke="#e0e0e0" strokeWidth="1" />
-            <line x1="40" y1="200" x2="560" y2="200" stroke="#f0f0f0" strokeWidth="1" />
-            <line x1="40" y1="150" x2="560" y2="150" stroke="#f0f0f0" strokeWidth="1" />
-            <line x1="40" y1="100" x2="560" y2="100" stroke="#f0f0f0" strokeWidth="1" />
-            <line x1="40" y1="50" x2="560" y2="50" stroke="#e0e0e0" strokeWidth="1" />
+            <line x1="40" y1="250" x2="560" y2="250" stroke="var(--border)" strokeWidth="1" />
+            <line x1="40" y1="200" x2="560" y2="200" stroke="var(--surface-2)" strokeWidth="1" />
+            <line x1="40" y1="150" x2="560" y2="150" stroke="var(--surface-2)" strokeWidth="1" />
+            <line x1="40" y1="100" x2="560" y2="100" stroke="var(--surface-2)" strokeWidth="1" />
+            <line x1="40" y1="50" x2="560" y2="50" stroke="var(--border)" strokeWidth="1" />
           </g>
           
           {/* Gradient fill under line */}
@@ -211,12 +211,12 @@ function StandardChart({ coinId, coinName = 'Crypto', timePeriod: initialPeriod 
             <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop 
                 offset="0%" 
-                stopColor={chartData.isPositive ? '#10b981' : '#ef4444'} 
+                stopColor={chartData.isPositive ? 'var(--success)' : 'var(--danger)'} 
                 stopOpacity="0.3" 
               />
               <stop 
                 offset="100%" 
-                stopColor={chartData.isPositive ? '#10b981' : '#ef4444'} 
+                stopColor={chartData.isPositive ? 'var(--success)' : 'var(--danger)'} 
                 stopOpacity="0" 
               />
             </linearGradient>
@@ -232,7 +232,7 @@ function StandardChart({ coinId, coinName = 'Crypto', timePeriod: initialPeriod 
           <path
             d={generateChartPath()}
             fill="none"
-            stroke={chartData.isPositive ? '#10b981' : '#ef4444'}
+            stroke={chartData.isPositive ? 'var(--success)' : 'var(--danger)'}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"

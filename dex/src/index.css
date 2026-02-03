@@ -1,20 +1,36 @@
 :root {
-  --bg: #1f1f1f; /* Main */
-  --surface: #181818; /* Secondary */
-  --muted: #98b244; /* TextSecondary / PopColor */
-  --text: #f9f9fb; /* Text */
-  --accent: #98b244; /* Pop/Emphasis */
-  --accent-contrast: #0a0a00;
+  --bg: #0f1115; /* Main */
+  --surface: #151a23; /* Secondary */
+  --surface-2: #1c2230; /* Elevated */
+  --border: #2a3242; /* Divider */
+  --text: #f3f6fb; /* Text */
+  --text-muted: #9aa4b2; /* Secondary text */
+  --accent: #99c800; /* Pop/Emphasis */
+  --muted: #98b244; /* Alt accent */
+  --accent-contrast: #0b1200;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --warning: #f59e0b;
+  --overlay: rgba(8, 10, 14, 0.6);
 }
 
 /* Light theme overrides */
 .theme-light {
-  --bg: #ebebef;
+  --bg: #f5f7fb;
   --surface: #ffffff;
-  --muted: #6b6b6b;
-  --text: #081018;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
   --accent: #99c800;
-  --accent-contrast: #ffffff;
+  --muted: #98b244;
+  --accent-contrast: #0b1200;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --info: #2563eb;
+  --warning: #d97706;
+  --overlay: rgba(15, 23, 42, 0.12);
 }
 
 body {
@@ -46,7 +62,7 @@ code {
 }
 
 .ant-input::placeholder {
-  color: #5f6783 !important;
+  color: var(--text-muted) !important;
 }
 
 .ant-popover-arrow {
@@ -54,17 +70,17 @@ code {
 }
 
 .ant-popover-title {
-  color: white !important;
+  color: var(--text) !important;
 }
 
 .ant-popover-inner-content {
-  color: white !important;
+  color: var(--text) !important;
 }
 
 .ant-popover-inner {
   min-width: 260px !important;
   min-height: 140px !important;
-  border: 1px solid var(--muted);
+  border: 1px solid var(--border);
   background-color: var(--surface) !important;
 }
 
@@ -73,25 +89,19 @@ code {
 }
 
 .ant-radio-button-wrapper {
-  background-color: #1f2639 !important;
-  color: white !important;
+  background-color: var(--surface-2) !important;
+  color: var(--text) !important;
   font-weight: 500;
-  border-color: white !important;
+  border-color: var(--border) !important;
 }
 
 .ant-radio-button-wrapper-checked {
-  border-color: white !important;
-  background-color: #363e54 !important;
+  border-color: var(--accent) !important;
+  background-color: color-mix(in srgb, var(--accent) 14%, var(--surface-2) 86%) !important;
 }
 
 .ant-radio-button-wrapper-checked::before {
-  background-color: white !important;
-}
-
-.ant-modal-content {
-  background-color: #0e111b !important;
-  color: white !important;
-  padding: 0px !important;
+  background-color: var(--accent) !important;
 }
 
 .ant-modal-content {
@@ -100,7 +110,7 @@ code {
   padding: 0px !important;
 }
 .ant-modal {
-  border: 1px solid var(--muted);
+  border: 1px solid var(--border);
   width: 400px !important;
   border-radius: 10px;
 }
@@ -113,9 +123,9 @@ code {
   margin-left: 20px !important;
 }
 .ant-modal-close-icon {
-  color: var(--muted) !important;
+  color: var(--text-muted) !important;
   transition: 0.3s;
 }
 .ant-modal-close-icon:hover {
-  color: var(--bg) !important;
+  color: var(--text) !important;
 }
