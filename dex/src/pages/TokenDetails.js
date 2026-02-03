@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTokens } from '../contexts/TokenContext';
-import { useGetCryptoDetailsQuery } from '../hooks';
-import { StandardChart } from '../components/Tokens';
+import { useGetCryptoDetailsQuery, useGetCryptoHistoryQuery } from '../hooks';
+import StandardChart from '../components/TokenPage/StandardChart';
 import './Tokens.css';
 
 function TokenDetails() {
@@ -17,6 +17,13 @@ function TokenDetails() {
     error: detailsError,
     refetch: refetchDetails
   } = useGetCryptoDetailsQuery(uuid);
+
+  const {
+    data: coinHistoryData,
+    isFetching: historyLoading,
+    error: historyError,
+    refetch: refetchHistory
+  } = useGetCryptoHistoryQuery(uuid, '24h');
 
   // Extract coin details from response
   const coinDetails = useMemo(() => {
@@ -236,9 +243,10 @@ function TokenDetails() {
 
       {/* Chart Section */}
       <StandardChart
-        coinId={uuid}
-        coinName={combinedData.name}
-        timePeriod="24h"
+        coinHistory={coinHistoryData}
+        loading={historyLoading}
+        error={historyError}
+        refetchHistory={refetchHistory}
       />
 
       {/* Description Section */}
