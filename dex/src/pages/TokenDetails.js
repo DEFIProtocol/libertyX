@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTokens } from '../contexts/TokenContext';
 import { useGetCryptoDetailsQuery, useGetCryptoHistoryQuery } from '../hooks';
 import StandardChart from '../components/TokenPage/StandardChart';
+import TradingViewChart from '../components/TokenPage/TradingViewChart';
 import './Tokens.css';
 
 function TokenDetails() {
@@ -10,6 +11,7 @@ function TokenDetails() {
   const navigate = useNavigate();
   const { displayTokens } = useTokens();
   const [timePeriod, setTimePeriod] = useState('24h');
+  const [showFullChart, setShowFullChart] = useState(false);
 
   // Fetch detailed coin data from RapidAPI
   const {
@@ -71,6 +73,11 @@ function TokenDetails() {
       decimals: localTokenData?.decimals,
     };
   }, [coinDetails, localTokenData]);
+
+  const tradingViewSymbol = useMemo(() => {
+    if (!combinedData?.symbol) return null;
+    return `CRYPTO:${combinedData.symbol.toUpperCase()}USD`;
+  }, [combinedData?.symbol]);
 
   // Format large numbers
   const formatNumber = (num) => {
@@ -243,14 +250,39 @@ function TokenDetails() {
       </div>
 
       {/* Chart Section */}
-      <StandardChart
-        coinHistory={coinHistoryData}
-        loading={historyLoading}
-        error={historyError}
-        refetchHistory={refetchHistory}
-        timePeriod={timePeriod}
-        onTimePeriodChange={setTimePeriod}
-      />
+      <div className="full-chart-actions">
+        <button
+          type="button"
+          className="full-chart-toggle"
+          onClick={() => setShowFullChart((prev) => !prev)}
+          disabled={!tradingViewSymbol}
+        >
+          Full featured chart
+        </button>
+      </div>
+
+      {showFullChart && (
+        <div className="full-chart-section">
+          {tradingViewSymbol ? (
+            <TradingViewChart symbol={tradingViewSymbol} />
+          ) : (
+            <div className="full-chart-empty">
+              <p>Full featured chart is unavailable for this token.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!showFullChart && (
+        <StandardChart
+          coinHistory={coinHistoryData}
+          loading={historyLoading}
+          error={historyError}
+          refetchHistory={refetchHistory}
+          timePeriod={timePeriod}
+          onTimePeriodChange={setTimePeriod}
+        />
+      )}
 
       {/* Description Section */}
       {combinedData.description && (
