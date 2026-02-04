@@ -138,6 +138,10 @@
   font-size: 16px;
 }
 
+.token-table .price-value {
+  color: var(--text-muted) !important;
+}
+
 .change-cell {
   width: 150px;
 }
