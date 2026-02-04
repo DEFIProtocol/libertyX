@@ -8,7 +8,7 @@ import './token-table.css';
 
 function TokenTable({ tokens: tokensProp = [] }) {
   const navigate = useNavigate();
-  const { dbTokens, loadingAll } = useTokens();
+  const { dbTokens } = useTokens();
   const { coins } = useRapidApi();
   const { latestData } = useBinanceWs();
   const { selectedChain } = useChainContext();

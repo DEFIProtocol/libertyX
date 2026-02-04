@@ -1,0 +1,144 @@
+.checkboxContainer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.check-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  appearance: none;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.check-row input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.check-row input[type="checkbox"]:checked::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent-contrast);
+}
+
+.selectChainOrder {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.selectChainOrder:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.input {
+  width: 100%;
+  margin: 16px 0 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.buttonContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.buyButton,
+.sellButton {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.buyButton {
+  background: color-mix(in srgb, var(--success) 20%, var(--surface) 80%);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border) 60%);
+}
+
+.sellButton {
+  background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border) 60%);
+}
+
+.buyButton:disabled,
+.sellButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.buyButton:not(:disabled):hover,
+.sellButton:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.cog {
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.cog:hover {
+  color: var(--accent);
+  transform: rotate(12deg);
+}

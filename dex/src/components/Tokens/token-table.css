@@ -134,7 +134,7 @@
 
 .price-value {
   font-weight: 600;
-  color: var(--text);
+  color: color-mix(in srgb, var(--text) 70%, var(--text-muted) 30%);
   font-size: 16px;
 }
 
@@ -166,12 +166,35 @@
 
 .marketcap-value {
   font-weight: 500;
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--text) 70%, var(--text-muted) 30%);
 }
 
 .no-data {
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* Search input (TokenTable) */
+.searchBar {
+  width: min(640px, 100%);
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 85%, var(--bg) 15%);
+  color: var(--text);
+  font-size: 16px;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.searchBar::placeholder {
+  color: var(--text-muted);
+}
+
+.searchBar:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--surface-2) 92%, var(--bg) 8%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* Expanded Details */

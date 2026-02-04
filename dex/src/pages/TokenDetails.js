@@ -1,17 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTokens } from '../contexts/TokenContext';
 import { useGetCryptoDetailsQuery, useGetCryptoHistoryQuery } from '../hooks';
 import StandardChart from '../components/TokenPage/StandardChart';
-import TradingViewChart from '../components/TokenPage/TradingViewChart';
+import MarketOrder from '../components/TokenPage/MarketOrder';
 import './Tokens.css';
 
-function TokenDetails() {
+function TokenDetails({ address }) {
   const { uuid } = useParams();
   const navigate = useNavigate();
   const { displayTokens } = useTokens();
-  const [timePeriod, setTimePeriod] = useState('24h');
-  const [showFullChart, setShowFullChart] = useState(false);
 
   // Fetch detailed coin data from RapidAPI
   const {
@@ -26,7 +24,7 @@ function TokenDetails() {
     isFetching: historyLoading,
     error: historyError,
     refetch: refetchHistory
-  } = useGetCryptoHistoryQuery(uuid, timePeriod);
+  } = useGetCryptoHistoryQuery(uuid, '24h');
 
   // Extract coin details from response
   const coinDetails = useMemo(() => {
@@ -73,11 +71,6 @@ function TokenDetails() {
       decimals: localTokenData?.decimals,
     };
   }, [coinDetails, localTokenData]);
-
-  const tradingViewSymbol = useMemo(() => {
-    if (!combinedData?.symbol) return null;
-    return `CRYPTO:${combinedData.symbol.toUpperCase()}USD`;
-  }, [combinedData?.symbol]);
 
   // Format large numbers
   const formatNumber = (num) => {
@@ -249,40 +242,27 @@ function TokenDetails() {
         </div>
       </div>
 
-      {/* Chart Section */}
-      <div className="full-chart-actions">
-        <button
-          type="button"
-          className="full-chart-toggle"
-          onClick={() => setShowFullChart((prev) => !prev)}
-          disabled={!tradingViewSymbol}
-        >
-          Full featured chart
-        </button>
-      </div>
-
-      {showFullChart && (
-        <div className="full-chart-section">
-          {tradingViewSymbol ? (
-            <TradingViewChart symbol={tradingViewSymbol} />
-          ) : (
-            <div className="full-chart-empty">
-              <p>Full featured chart is unavailable for this token.</p>
-            </div>
-          )}
+      {/* Chart + Order Section */}
+      <div className="chart-order-grid">
+        <div className="chart-panel">
+          <StandardChart
+            coinHistory={coinHistoryData}
+            loading={historyLoading}
+            error={historyError}
+            refetchHistory={refetchHistory}
+          />
         </div>
-      )}
-
-      {!showFullChart && (
-        <StandardChart
-          coinHistory={coinHistoryData}
-          loading={historyLoading}
-          error={historyError}
-          refetchHistory={refetchHistory}
-          timePeriod={timePeriod}
-          onTimePeriodChange={setTimePeriod}
-        />
-      )}
+        <div className="order-panel">
+          <h3 className="order-panel-title">Market Order</h3>
+          <MarketOrder
+            address={address}
+            usdPrice={combinedData.price}
+            tokenName={combinedData.name}
+            symbol={combinedData.symbol}
+            decimals={combinedData.decimals || 18}
+          />
+        </div>
+      </div>
 
       {/* Description Section */}
       {combinedData.description && (

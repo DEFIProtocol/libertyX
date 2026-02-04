@@ -13,3 +13,6 @@ export { useTokenCrud } from './useTokenCrud';
 
 // Global price tokens
 export { useGlobalPriceTokens } from './useGlobalPriceTokens';
+
+// 1inch Fusion SDK helper
+export { useOneInchSdk } from './useOneInchSdk';
