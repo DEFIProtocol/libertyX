@@ -263,6 +263,57 @@
   gap: 30px;
 }
 
+.coin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.action-button.primary {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface) 88%);
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border) 75%);
+  color: var(--accent);
+}
+
+.action-button.secondary {
+  background: color-mix(in srgb, var(--info) 10%, var(--surface) 90%);
+  border-color: color-mix(in srgb, var(--info) 22%, var(--border) 78%);
+  color: var(--info);
+}
+
+.action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%);
+}
+
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 .coin-icon-large {
   width: 120px;
   height: 120px;
@@ -399,6 +450,59 @@
   gap: 10px;
 }
 
+/* Token Details Links */
+.links-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.links-card h3 {
+  margin: 0 0 14px;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.links-card .links-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.link-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.link-item:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2) 88%);
+  transform: translateY(-1px);
+}
+
+.link-name {
+  color: inherit;
+  font-size: 0.9rem;
+}
+
+.link-type {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .link-button {
   background: var(--surface-2);
   color: var(--text);
@@ -524,7 +628,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--bg) 70%, transparent);
   min-height: 0;
   height: 100%;

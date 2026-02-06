@@ -56,9 +56,16 @@ const toBaseUnits = (value, decimals) => {
 	return `${whole}${padded}`.replace(/^0+(?=\d)/, '') || '0';
 };
 
+const normalizeChainAddress = (value) => {
+	if (!value) return null;
+	const text = String(value).trim();
+	const cleaned = text.replace(/^[\{"']+|[\}"']+$/g, '');
+	return cleaned || null;
+};
+
 const getChainTokenAddress = (token, chainId, chainKey) => {
 	if (!token) return null;
-	const raw = token.addresses || token.chains || {};
+	const raw = token.chains || token.addresses || {};
 	const chains = typeof raw === 'string' ? (() => {
 		try {
 			return JSON.parse(raw);
@@ -67,12 +74,8 @@ const getChainTokenAddress = (token, chainId, chainKey) => {
 		}
 	})() : raw;
 
-	if (chainKey && chains?.[chainKey]) return chains[chainKey];
-
-	const keys = chainKeyMap[String(chainId)] || [];
-	for (const key of keys) {
-		if (chains?.[key]) return chains[key];
-	}
+	if (chainKey && chains?.[chainKey]) return normalizeChainAddress(chains[chainKey]);
+	if (chains?.[String(chainId)]) return normalizeChainAddress(chains[String(chainId)]);
 	return null;
 };
 
@@ -108,14 +111,56 @@ function MarketOrder(props) {
 		);
 	}, [dbTokens, jsonTokens, symbol]);
 
-	const chainId = String(selectedChain || '1');
+	const chainId = useMemo(() => {
+		const raw = selectedChain || '1';
+		const entries = availableChains || [];
+		const byId = entries.find((chain) => chain.id === String(raw));
+		if (byId) return byId.id;
+		const byKey = entries.find((chain) => chain.key === raw);
+		return byKey?.id || '1';
+	}, [availableChains, selectedChain]);
 	const selectedChainKey = (availableChains || []).find((chain) => chain.id === chainId)?.key || null;
 	const isSolana = chainId === '501';
+	const tokenChainsMap = useMemo(() => {
+		const raw = tokenObject?.chains || tokenObject?.addresses || {};
+		if (typeof raw === 'string') {
+			try {
+				return JSON.parse(raw);
+			} catch (e) {
+				return {};
+			}
+		}
+		return raw;
+	}, [tokenObject]);
+
+	const isTokenChainSupported = useCallback((targetChainId) => {
+		const targetKey = (availableChains || []).find((chain) => chain.id === String(targetChainId))?.key;
+		if (targetKey && tokenChainsMap?.[targetKey]) return true;
+		const keys = chainKeyMap[String(targetChainId)] || [];
+		return keys.some((key) => tokenChainsMap?.[key]);
+	}, [availableChains, tokenChainsMap]);
+
+	const supportedChains = useMemo(() => {
+		if (!tokenObject) return [];
+		const entries = availableChains || [];
+		return entries.filter((chain) => isTokenChainSupported(chain.id));
+	}, [availableChains, isTokenChainSupported, tokenObject]);
+
 	const tokenAddress = getChainTokenAddress(tokenObject, chainId, selectedChainKey);
 	const nativeSymbol = chainNativeSymbolMap[chainId] || 'ETH';
 	const nativeDecimals = chainNativeDecimalsMap[chainId] || 18;
 	const nativePrice = getPrice ? getPrice(nativeSymbol)?.price : null;
 	const tokenUsdPrice = Number(usdPrice) || null;
+	const logSdkResponse = useCallback((label, payload) => {
+		try {
+			// eslint-disable-next-line no-console
+			console.log(`[1inch SDK] ${label}`, payload);
+		} catch (err) {
+			// ignore logging errors
+		}
+	}, []);
+	const hasChainMappings = tokenObject && Object.keys(tokenChainsMap || {}).length > 0;
+	const shouldHide = hasChainMappings && !isTokenChainSupported(chainId);
 
 	const handleSlippageChange = (e) => {
 		setSlippage(e.target.value);
@@ -178,6 +223,7 @@ function MarketOrder(props) {
 				dstToken: tokenAddress,
 				amount: amountValue
 			});
+			logSdkResponse('getSolanaQuote (buy)', solQuote);
 
 			if (!solQuote?.success) {
 				showError(solQuote?.error || 'Failed to fetch Solana quote.');
@@ -187,12 +233,15 @@ function MarketOrder(props) {
 			return showConfirmationModal(solQuote.data, amountValue, true, true);
 		}
 
-		const quoteResponse = await getEvmQuote({
+		const evmQuotePayload = {
 			fromTokenAddress: EVM_NATIVE_ADDRESS,
 			toTokenAddress: tokenAddress,
 			amount: amountValue,
 			networkId: chainId
-		});
+		};
+		logSdkResponse('getEvmQuote payload (buy)', evmQuotePayload);
+		const quoteResponse = await getEvmQuote(evmQuotePayload);
+		logSdkResponse('getEvmQuote (buy)', quoteResponse);
 
 		if (!quoteResponse?.success) {
 			showError(quoteResponse?.error || 'Failed to fetch quote.');
@@ -220,6 +269,7 @@ function MarketOrder(props) {
 				dstToken: 'NATIVE',
 				amount: amountValue
 			});
+			logSdkResponse('getSolanaQuote (sell)', solQuote);
 
 			if (!solQuote?.success) {
 				showError(solQuote?.error || 'Failed to fetch Solana quote.');
@@ -229,12 +279,15 @@ function MarketOrder(props) {
 			return showConfirmationModal(solQuote.data, amountValue, false, true);
 		}
 
-		const quoteResponse = await getEvmQuote({
+		const evmQuotePayload = {
 			fromTokenAddress: tokenAddress,
 			toTokenAddress: EVM_NATIVE_ADDRESS,
 			amount: amountValue,
 			networkId: chainId
-		});
+		};
+		logSdkResponse('getEvmQuote payload (sell)', evmQuotePayload);
+		const quoteResponse = await getEvmQuote(evmQuotePayload);
+		logSdkResponse('getEvmQuote (sell)', quoteResponse);
 
 		if (!quoteResponse?.success) {
 			showError(quoteResponse?.error || 'Failed to fetch quote.');
@@ -292,6 +345,7 @@ function MarketOrder(props) {
 							amount: amountValue,
 							srcTokenProgram: 'TOKEN'
 						});
+						logSdkResponse('submitSolanaOrder', response);
 
 						if (!response?.success) {
 							showError(response?.error || 'Solana order failed.');
@@ -310,6 +364,7 @@ function MarketOrder(props) {
 						networkId: chainId,
 						slippage
 					});
+					logSdkResponse('submitEvmOrder', response);
 
 					if (!response?.success) {
 						showError(response?.error || 'Order failed.');
@@ -335,6 +390,7 @@ function MarketOrder(props) {
 						orderHash: activeOrder.orderHash,
 						networkId: activeOrder.chainId
 					});
+					logSdkResponse('getEvmStatus', statusResponse);
 
 					const status = statusResponse?.data?.status || statusResponse?.data?.state;
 					if (status === 'Filled' || status === 'filled') {
@@ -349,6 +405,7 @@ function MarketOrder(props) {
 						orderHash: activeOrder.orderHash,
 						signature: activeOrder.signature
 					});
+					logSdkResponse('getSolanaStatus', statusResponse);
 
 					const isActive = statusResponse?.data?.isActive;
 					const confirmation = statusResponse?.data?.confirmationStatus;
@@ -384,6 +441,10 @@ function MarketOrder(props) {
 		</>
 	);
 
+	if (shouldHide) {
+		return null;
+	}
+
 	return (
 		<>
 			{contextHolder}
@@ -398,7 +459,7 @@ function MarketOrder(props) {
 						className="selectChainOrder"
 						id="SelectChain"
 					>
-						{(availableChains || []).map((chain) => (
+						{supportedChains.map((chain) => (
 							<option key={chain.id} value={chain.id}>
 								{chain.label}
 							</option>
@@ -457,7 +518,7 @@ function MarketOrder(props) {
 					Sell
 				</button>
 			</div>
-			<div style={{ color: 'lime', fontWeight: '700', margin: '0px auto', padding: '4%' }}>
+			<div style={{ color: 'lime', fontWeight: '700', margin: '0px auto', padding: '2%' }}>
 				{nativeSymbol} Price per Token = {nativePrice && tokenUsdPrice ? (tokenUsdPrice / nativePrice).toFixed(6) : '--'}
 			</div>
 		</>

@@ -28,9 +28,13 @@ ChartJS.register(
  * Displays price history chart for a cryptocurrency
  * 
  * Props:
- *  - coinId (string): UUID of the coin to display
- *  - coinName (string): Name of coin for display
- *  - timePeriod (string): Initial time period ('24h', '7d', '30d', '1y', '5y')
+ *  - coinHistory (object): History response
+ *  - loading (boolean)
+ *  - error (object)
+ *  - refetchHistory (function)
+ *  - timePeriod (string): Current time period
+ *  - onTimePeriodChange (function): Setter for time period
+ *  - periodOptions (array): Custom periods
  */
 const DEFAULT_PERIODS = [
     { label: '24H', value: '24h' },

@@ -7,6 +7,16 @@
   box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 70%, transparent);
   transition: all 0.3s ease;
   border: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
+  clear: both;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
 
 .full-chart-actions {
