@@ -16,3 +16,12 @@ export { useGlobalPriceTokens } from './useGlobalPriceTokens';
 
 // 1inch Fusion SDK helper
 export { useOneInchSdk } from './useOneInchSdk';
+
+// Chainlink oracle hooks
+export {
+    useChainlink,
+    useChainlinkPrice,
+    useChainlinkBatchPrices,
+    useChainlinkChartData,
+    usePriceComparison
+} from './useChainlink';

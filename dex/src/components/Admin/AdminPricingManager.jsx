@@ -58,14 +58,19 @@ function AdminPricingManager() {
 
     // Binance mini-ticker stream (all USDT pairs)
     const { latestData, isConnected: binanceConnected } = useBinanceWs();
+    const [liveTickerBySymbol, setLiveTickerBySymbol] = useState({});
 
-    const liveTickerBySymbol = useMemo(() => {
-        const map = {};
-        if (Array.isArray(latestData)) {
+    useEffect(() => {
+        if (!Array.isArray(latestData) || latestData.length === 0) {
+            return;
+        }
+
+        setLiveTickerBySymbol((prev) => {
+            const next = { ...prev };
             latestData.forEach((ticker) => {
                 if (ticker?.s && ticker.s.endsWith('USDT')) {
                     const base = ticker.s.replace(/USDT$/i, '').toUpperCase();
-                    map[base] = {
+                    next[base] = {
                         s: ticker.s,
                         c: ticker.c,
                         o: ticker.o || '0',
@@ -77,8 +82,8 @@ function AdminPricingManager() {
                     };
                 }
             });
-        }
-        return map;
+            return next;
+        });
     }, [latestData]);
 
     const [initialSnapshot, setInitialSnapshot] = useState({});
@@ -865,6 +870,7 @@ function PricingTable({ tokens, selectedTokens, onSelectToken, wsConnected }) {
 
 // Pricing Row Component
 function PricingRow({ token, apiPrice, binancePrice, difference, isSelected, onSelect }) {
+    const hasBinancePricing = binancePrice !== null && binancePrice !== undefined;
     const getRowClass = () => {
         if (token.isStale) return 'stale';
         if (!apiPrice) return 'no-price';
@@ -919,7 +925,11 @@ function PricingRow({ token, apiPrice, binancePrice, difference, isSelected, onS
             
             {/* Source */}
             <td className="source-cell">
-                <span className="source-badge binance">binance</span>
+                {hasBinancePricing ? (
+                    <span className="source-badge binance">binance</span>
+                ) : (
+                    <span className="source-badge rapidapi">RapidApi</span>
+                )}
             </td>
             
             {/* Difference */}
@@ -1032,8 +1042,8 @@ function SymbolListTable({ symbols }) {
                 </tr>
             </thead>
             <tbody>
-                {symbols.map((symbol) => (
-                    <tr key={symbol}>
+                {symbols.map((symbol, index) => (
+                    <tr key={`${symbol}-${index}`}>
                         <td className="symbol-cell"><strong>{symbol}</strong></td>
                         <td>{symbol}USDT</td>
                     </tr>

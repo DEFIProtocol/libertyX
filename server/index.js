@@ -46,6 +46,7 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 const oneInchRoutes = require('./routes/oneinch');
 const fusionRoutes = require('./routes/fusion');
 const globalPricesRoutes = require('./routes/globalPrices');
+const oracleRoutes = require('./routes/oracle');
 
 // API Routes
 app.use('/api/tokens', tokensRoutes);
@@ -54,6 +55,7 @@ app.use('/api/crypto', cryptoRoutes);
 app.use('/api/oneinch', oneInchRoutes);
 app.use('/api/fusion', fusionRoutes);
 app.use('/api/global-prices', globalPricesRoutes(pool));
+app.use('/api/oracle', oracleRoutes);
 
 // Add RapidAPI routes with rate limiting and caching
 const rapidapiRoutes = require('./routes/rapidapi');
