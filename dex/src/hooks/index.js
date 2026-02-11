@@ -14,6 +14,9 @@ export { useCoinbaseWs } from './useCoinbaseWs';
 // Export token CRUD hook
 export { useTokenCrud } from './useTokenCrud';
 
+// User CRUD hook
+export { useUserCrud } from './useUserCrud';
+
 // Global price tokens
 export { useGlobalPriceTokens } from './useGlobalPriceTokens';
 

@@ -115,6 +115,66 @@ header {
 .App > .mainWindow {
   flex: 1;
 }
+
+.account-setup-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9999;
+  width: min(360px, 90vw);
+}
+
+.account-setup-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.account-setup-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.account-setup-body {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.account-setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.account-setup-button,
+.account-setup-dismiss {
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.account-setup-button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border) 30%);
+}
+
+.account-setup-button:hover {
+  filter: brightness(1.05);
+}
+
+.account-setup-dismiss:hover {
+  border-color: var(--text-muted);
+}
 .header-items-container2 {
   display: flex;
   align-items: center;
