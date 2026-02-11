@@ -26,6 +26,18 @@ class GlobalPriceStore {
             next.isLive = data.isLive ?? true;
         }
 
+        if (data.source === 'coinbase') {
+            const coinbasePrice = data.price ?? data.coinbasePrice ?? existing.coinbasePrice ?? null;
+            next.coinbasePrice = coinbasePrice;
+
+            const hasBinance = existing.source === 'binance' || existing.binancePrice !== undefined;
+            if (!hasBinance) {
+                next.price = coinbasePrice ?? next.price;
+                next.source = 'coinbase';
+                next.isLive = data.isLive ?? false;
+            }
+        }
+
         if (data.source === 'rapidapi') {
             const rapidPrice = data.price ?? data.rapidPrice ?? existing.rapidPrice ?? null;
             next.rapidPrice = rapidPrice;
@@ -34,7 +46,8 @@ class GlobalPriceStore {
             next.marketCap = next.marketCap || data.marketCap;
             next.change = next.change || data.change;
             next.coinData = next.coinData || data.coinData;
-            if (!existing.isLive) {
+            const hasPreferred = existing.source === 'binance' || existing.source === 'coinbase' || existing.binancePrice !== undefined;
+            if (!existing.isLive && !hasPreferred) {
                 next.price = rapidPrice ?? next.price;
                 next.source = existing.source || 'rapidapi';
             }

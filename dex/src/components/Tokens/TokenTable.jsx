@@ -4,6 +4,7 @@ import { useTokens } from '../../contexts/TokenContext';
 import { useRapidApi } from '../../contexts/RapidApiContext';
 import { useChainContext } from '../../contexts/ChainContext';
 import { useBinanceWs } from '../../contexts/BinanceWsContext';
+import { useGlobalPrices } from '../../contexts/GlobalPriceContext';
 import './token-table.css';
 
 function TokenTable({ tokens: tokensProp = [] }) {
@@ -11,6 +12,7 @@ function TokenTable({ tokens: tokensProp = [] }) {
   const { dbTokens } = useTokens();
   const { coins } = useRapidApi();
   const { latestData } = useBinanceWs();
+  const { prices: globalPrices } = useGlobalPrices();
   const { selectedChain } = useChainContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
@@ -78,21 +80,40 @@ function TokenTable({ tokens: tokensProp = [] }) {
         const rapidCoin = symbolKey ? rapidBySymbol[symbolKey] : null;
         const binanceTicker = symbolKey ? binanceBySymbol[symbolKey] : null;
         const binancePrice = binanceTicker?.c ? parseFloat(binanceTicker.c) : null;
-        const rapidPrice = rapidCoin?.price ? parseFloat(rapidCoin.price) : null;
-        const resolvedPrice = binancePrice ?? rapidPrice ?? null;
+        const priceEntry = symbolKey ? globalPrices?.[symbolKey] : null;
+        const coinbasePrice = priceEntry?.coinbasePrice ?? null;
+        const rapidPrice = priceEntry?.rapidPrice ?? (rapidCoin?.price ? parseFloat(rapidCoin.price) : null);
+        const resolvedPrice = binancePrice ?? coinbasePrice ?? rapidPrice ?? null;
+
+        const resolvedMarketCap =
+          priceEntry?.marketCap ??
+          priceEntry?.coinData?.marketCap ??
+          (rapidCoin?.marketCap ?? null);
+        const resolvedChange =
+          priceEntry?.change ??
+          priceEntry?.coinData?.change ??
+          (rapidCoin?.change ?? null);
 
         return {
           ...token,
           uuid: token.uuid || rapidCoin?.uuid,
           name: token.name || rapidCoin?.name || token.symbol,
           price: resolvedPrice !== null ? resolvedPrice.toString() : '0',
-          change: token.change || (rapidCoin?.change ? rapidCoin.change.toString() : '0'),
-          marketCap: token.marketCap || token.market_cap || (rapidCoin?.marketCap ?? '0'),
-          priceSource: binancePrice !== null ? 'binance' : (rapidPrice !== null ? 'rapidapi' : 'unknown')
+          change:
+            token.change || (resolvedChange !== null && resolvedChange !== undefined
+              ? resolvedChange.toString()
+              : '0'),
+          marketCap:
+            token.marketCap || token.market_cap || (resolvedMarketCap ?? '0'),
+          priceSource: binancePrice !== null
+            ? 'binance'
+            : (coinbasePrice !== null
+              ? 'coinbase'
+              : (rapidPrice !== null ? 'rapidapi' : 'unknown'))
         };
       })
       .filter(Boolean);
-  }, [baseTokens, rapidBySymbol, binanceBySymbol, selectedChain]);
+  }, [baseTokens, rapidBySymbol, binanceBySymbol, selectedChain, globalPrices]);
   
   // Helper to get sortable value
   const getSortValue = (token, key) => {

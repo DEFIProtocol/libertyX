@@ -8,6 +8,9 @@ export {
 // WebSocket helper
 export { useWebSocket } from './useWebSocket';
 
+// Coinbase WebSocket helper
+export { useCoinbaseWs } from './useCoinbaseWs';
+
 // Export token CRUD hook
 export { useTokenCrud } from './useTokenCrud';
 

@@ -42,6 +42,7 @@ app.use(express.json());
 // Import routes
 const tokensRoutes = require('./routes/tokens')(pool);
 const binanceRoutes = require('./routes/binance');
+const coinbaseRoutes = require('./routes/coinbase');
 const cryptoRoutes = require('./routes/cryptoRoutes');
 const oneInchRoutes = require('./routes/oneinch');
 const fusionRoutes = require('./routes/fusion');
@@ -51,6 +52,7 @@ const oracleRoutes = require('./routes/oracle');
 // API Routes
 app.use('/api/tokens', tokensRoutes);
 app.use('/api/binance', binanceRoutes);
+app.use('/api/coinbase', coinbaseRoutes);
 app.use('/api/crypto', cryptoRoutes);
 app.use('/api/oneinch', oneInchRoutes);
 app.use('/api/fusion', fusionRoutes);
@@ -94,6 +96,10 @@ app.get('/api/ws-status', (req, res) => {
         binance: {
             upstreamConnected: binanceWsConnected,
             clients: wsClients.size
+        },
+        coinbase: {
+            upstreamConnected: coinbaseUpstreamConnected,
+            clients: coinbaseWsClients.size
         }
     });
 });
@@ -114,6 +120,12 @@ let binanceWs = null;
 let binanceWsConnected = false;
 const wsClients = new Set();
 let lastBinanceLog = 0;
+
+// ===== Coinbase WS proxy =====
+const COINBASE_WS_PRIMARY = process.env.COINBASE_WS_PRIMARY || 'wss://ws-direct.exchange.coinbase.com';
+const COINBASE_WS_FALLBACK = process.env.COINBASE_WS_FALLBACK || 'wss://ws-feed.exchange.coinbase.com';
+const coinbaseWsClients = new Set();
+let coinbaseUpstreamConnected = false;
 
 const connectBinanceWs = () => {
     if (binanceWs && binanceWsConnected) return;
@@ -191,6 +203,81 @@ wss.on('connection', (ws) => {
     });
 });
 
+const createCoinbaseUpstream = (client, upstreamUrl) => {
+    let upstream = new WebSocket(upstreamUrl);
+    let lastClientMessages = [];
+    let usingFallback = upstreamUrl === COINBASE_WS_FALLBACK;
+
+    const connectUpstream = (url) => {
+        upstream = new WebSocket(url);
+
+        upstream.on('open', () => {
+            coinbaseUpstreamConnected = true;
+            lastClientMessages.forEach((msg) => {
+                try {
+                    upstream.send(msg);
+                } catch (error) {
+                    // ignore
+                }
+            });
+        });
+
+        upstream.on('message', (data) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(data.toString());
+            }
+        });
+
+        upstream.on('close', () => {
+            coinbaseUpstreamConnected = false;
+            const nextUrl = usingFallback ? COINBASE_WS_PRIMARY : COINBASE_WS_FALLBACK;
+            usingFallback = !usingFallback;
+            setTimeout(() => connectUpstream(nextUrl), 3000);
+        });
+
+        upstream.on('error', () => {
+            coinbaseUpstreamConnected = false;
+            try {
+                upstream.close();
+            } catch (error) {
+                // ignore
+            }
+        });
+    };
+
+    connectUpstream(upstreamUrl);
+
+    client.on('message', (data) => {
+        const message = data.toString();
+        lastClientMessages = [...lastClientMessages, message].slice(-5);
+
+        if (upstream.readyState === WebSocket.OPEN) {
+            upstream.send(message);
+        }
+    });
+
+    const cleanup = () => {
+        try {
+            upstream.close();
+        } catch (error) {
+            // ignore
+        }
+    };
+
+    client.on('close', cleanup);
+    client.on('error', cleanup);
+};
+
+const coinbaseWss = new WebSocket.Server({ server, path: '/ws/coinbase' });
+coinbaseWss.on('connection', (ws) => {
+    coinbaseWsClients.add(ws);
+    createCoinbaseUpstream(ws, COINBASE_WS_PRIMARY);
+
+    ws.on('close', () => {
+        coinbaseWsClients.delete(ws);
+    });
+});
+
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log('Available endpoints:');
@@ -201,4 +288,5 @@ server.listen(PORT, () => {
     console.log(`  http://localhost:${PORT}/api/rapidapi/stats`);
     console.log(`  http://localhost:${PORT}/api/health`);
     console.log(`  ws://localhost:${PORT}/ws/binance`);
+    console.log(`  ws://localhost:${PORT}/ws/coinbase`);
 });

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTokens } from '../../contexts/TokenContext';
 import { useBinanceWs } from '../../contexts/BinanceWsContext';
 import { useRapidApi } from '../../contexts/RapidApiContext';
+import { useGlobalPrices } from '../../contexts/GlobalPriceContext';
 import './AdminPricingManager.css';
 
 function AdminPricingManager() {
@@ -58,6 +59,12 @@ function AdminPricingManager() {
 
     // Binance mini-ticker stream (all USDT pairs)
     const { latestData, isConnected: binanceConnected } = useBinanceWs();
+    const {
+        prices: globalPrices,
+        coinbaseConnected,
+        coinbaseTotalPrices,
+        coinbaseUsedPrices
+    } = useGlobalPrices();
     const [liveTickerBySymbol, setLiveTickerBySymbol] = useState({});
 
     useEffect(() => {
@@ -88,6 +95,8 @@ function AdminPricingManager() {
 
     const [initialSnapshot, setInitialSnapshot] = useState({});
     const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
+    const [coinbaseSnapshot, setCoinbaseSnapshot] = useState({});
+    const [isLoadingCoinbaseSnapshot, setIsLoadingCoinbaseSnapshot] = useState(false);
 
     useEffect(() => {
         const fetchSnapshot = async () => {
@@ -106,6 +115,26 @@ function AdminPricingManager() {
 
         fetchSnapshot();
         const interval = setInterval(fetchSnapshot, 30 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        const fetchCoinbaseSnapshot = async () => {
+            setIsLoadingCoinbaseSnapshot(true);
+            try {
+                const response = await fetch('/api/coinbase/all-prices');
+                const data = await response.json();
+                setCoinbaseSnapshot(data?.prices || {});
+                console.log(`📊 Coinbase snapshot: ${Object.keys(data?.prices || {}).length} symbols`);
+            } catch (error) {
+                console.error('Failed to fetch Coinbase snapshot:', error);
+            } finally {
+                setIsLoadingCoinbaseSnapshot(false);
+            }
+        };
+
+        fetchCoinbaseSnapshot();
+        const interval = setInterval(fetchCoinbaseSnapshot, 30 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -164,9 +193,11 @@ function AdminPricingManager() {
             const key = normalizeSymbolKey(base);
             const apiCoin = cryptosBySymbol[base] || cryptosByKey[key];
             const dbToken = dbTokensBySymbol[base];
+            const priceEntry = globalPrices?.[base?.toUpperCase()];
 
             const binancePrice = parseFloat(ticker.c || 0);
             const apiPrice = apiCoin?.price ? parseFloat(apiCoin.price) : null;
+            const coinbasePrice = priceEntry?.coinbasePrice ?? coinbaseSnapshot?.[base?.toUpperCase()]?.price ?? null;
 
             return {
                 pair,
@@ -177,6 +208,7 @@ function AdminPricingManager() {
                 hasDbToken: !!dbToken,
                 apiPrice,
                 binancePrice,
+                coinbasePrice,
                 priceSource: ticker.isStale ? 'stale' : 'binance',
                 isStreaming: !ticker.isStale && binanceConnected,
                 isStale: !!ticker.isStale,
@@ -195,6 +227,8 @@ function AdminPricingManager() {
             .map((coin) => {
                 const symbol = coin?.symbol?.toUpperCase() || '';
                 const dbToken = dbTokensBySymbol[symbol];
+                const priceEntry = globalPrices?.[symbol];
+                const coinbasePrice = priceEntry?.coinbasePrice ?? coinbaseSnapshot?.[symbol]?.price ?? null;
 
                 return {
                     pair: symbol ? `${symbol}USDT` : '—',
@@ -205,6 +239,7 @@ function AdminPricingManager() {
                     hasDbToken: !!dbToken,
                     apiPrice: coin?.price ? parseFloat(coin.price) : null,
                     binancePrice: null,
+                    coinbasePrice,
                     priceSource: 'rapidapi',
                     isStreaming: false,
                     isStale: true,
@@ -216,7 +251,7 @@ function AdminPricingManager() {
             });
 
         return [...rows, ...rapidOnlyRows];
-    }, [binancePairs, cryptosBySymbol, cryptosByKey, dbTokensBySymbol, binanceConnected, cryptoList, binanceKeySet]);
+    }, [binancePairs, cryptosBySymbol, cryptosByKey, dbTokensBySymbol, binanceConnected, cryptoList, binanceKeySet, globalPrices, coinbaseSnapshot]);
 
     const mergedRowsBySymbol = useMemo(() => {
         const map = {};
@@ -479,6 +514,14 @@ function AdminPricingManager() {
                         <div className="stat-item">
                             <span className="stat-label">RapidAPI Coins:</span>
                             <span className="stat-value">{cryptoList.length}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Coinbase Prices:</span>
+                            <span className="stat-value">{coinbaseTotalPrices || 0}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Coinbase Used:</span>
+                            <span className="stat-value">{coinbaseUsedPrices || 0}</span>
                         </div>
                         <div className="stat-item">
                             <span className="stat-label">Symbol Matches:</span>
@@ -765,6 +808,7 @@ function AdminPricingManager() {
                             selectedTokens={selectedTokens}
                             onSelectToken={toggleTokenSelection}
                             wsConnected={binanceConnected}
+                            coinbaseConnected={coinbaseConnected}
                         />
                     </div>
 
@@ -827,7 +871,7 @@ function AdminPricingManager() {
 }
 
 // Pricing Table Component
-function PricingTable({ tokens, selectedTokens, onSelectToken, wsConnected }) {
+function PricingTable({ tokens, selectedTokens, onSelectToken, wsConnected, coinbaseConnected }) {
     return (
         <table className="pricing-table">
             <thead>
@@ -838,6 +882,7 @@ function PricingTable({ tokens, selectedTokens, onSelectToken, wsConnected }) {
                     <th>Name</th>
                     <th>RapidAPI Price</th>
                     <th>Binance WS Price</th>
+                    <th>Coinbase WS Price</th>
                     <th>Source</th>
                     <th>Difference</th>
                     <th>WS Active</th>
@@ -857,9 +902,12 @@ function PricingTable({ tokens, selectedTokens, onSelectToken, wsConnected }) {
                             token={token}
                             apiPrice={apiPrice}
                             binancePrice={binancePrice}
+                            coinbasePrice={token.coinbasePrice}
                             difference={difference}
                             isSelected={selectedTokens.includes(token.symbol)}
                             onSelect={() => onSelectToken(token.symbol)}
+                            wsConnected={wsConnected}
+                            coinbaseConnected={coinbaseConnected}
                         />
                     );
                 })}
@@ -869,8 +917,19 @@ function PricingTable({ tokens, selectedTokens, onSelectToken, wsConnected }) {
 }
 
 // Pricing Row Component
-function PricingRow({ token, apiPrice, binancePrice, difference, isSelected, onSelect }) {
+function PricingRow({
+    token,
+    apiPrice,
+    binancePrice,
+    coinbasePrice,
+    difference,
+    isSelected,
+    onSelect,
+    wsConnected,
+    coinbaseConnected
+}) {
     const hasBinancePricing = binancePrice !== null && binancePrice !== undefined;
+    const hasCoinbasePricing = coinbasePrice !== null && coinbasePrice !== undefined;
     const getRowClass = () => {
         if (token.isStale) return 'stale';
         if (!apiPrice) return 'no-price';
@@ -922,14 +981,27 @@ function PricingRow({ token, apiPrice, binancePrice, difference, isSelected, onS
                     <span className="no-price-text">—</span>
                 )}
             </td>
+
+            {/* Coinbase Price */}
+            <td className="current-price-cell">
+                {coinbasePrice ? (
+                    <div>
+                        <div className="price-value">${coinbasePrice.toFixed(4)}</div>
+                    </div>
+                ) : (
+                    <span className="no-price-text">—</span>
+                )}
+            </td>
             
             {/* Source */}
             <td className="source-cell">
                 {hasBinancePricing ? (
                     <span className="source-badge binance">binance</span>
+                ) : (coinbaseConnected && hasCoinbasePricing ? (
+                    <span className="source-badge coinbase">coinbase</span>
                 ) : (
                     <span className="source-badge rapidapi">RapidApi</span>
-                )}
+                ))}
             </td>
             
             {/* Difference */}

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useBinanceWs } from './BinanceWsContext';
+import { useCoinbaseWsContext } from './CoinbaseWsContext';
 
 const GlobalPriceContext = createContext();
 
@@ -12,6 +13,11 @@ export const GlobalPriceProvider = ({ children }) => {
     const didTryRapidRef = useRef(false);
 
     const { isConnected: wsConnected, latestData } = useBinanceWs();
+    const {
+        isConnected: coinbaseConnected,
+        latestTicker: coinbaseTicker,
+        setSymbols: setCoinbaseSymbols
+    } = useCoinbaseWsContext();
 
     const refreshRapidApi = async () => {
         try {
@@ -72,6 +78,19 @@ export const GlobalPriceProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, []);
 
+    const coinbaseSymbols = useMemo(() => Object.keys(prices || {}), [prices]);
+    const coinbaseSymbolsKeyRef = useRef('');
+
+    useEffect(() => {
+        if (coinbaseSymbols.length === 0) return;
+
+        const nextKey = coinbaseSymbols.join('|');
+        if (nextKey === coinbaseSymbolsKeyRef.current) return;
+
+        coinbaseSymbolsKeyRef.current = nextKey;
+        setCoinbaseSymbols(coinbaseSymbols);
+    }, [coinbaseSymbols, setCoinbaseSymbols]);
+
     useEffect(() => {
         if (latestData && Array.isArray(latestData)) {
             setPrices((prev) => {
@@ -110,6 +129,42 @@ export const GlobalPriceProvider = ({ children }) => {
         }
     }, [latestData]);
 
+    useEffect(() => {
+        if (!coinbaseTicker?.symbol || !coinbaseTicker?.price) return;
+
+        const symbol = coinbaseTicker.symbol.toUpperCase();
+        const price = parseFloat(coinbaseTicker.price);
+
+        if (Number.isNaN(price)) return;
+
+        setPrices((prev) => {
+            const existing = prev[symbol] || {};
+            const hasBinance = existing.binancePrice !== undefined && existing.binancePrice !== null;
+            const next = {
+                ...existing,
+                symbol,
+                coinbasePrice: price,
+                coinbaseUpdatedAt: Date.now()
+            };
+
+            if (!wsConnected && !hasBinance) {
+                next.price = price;
+                next.source = 'coinbase';
+                next.isLive = true;
+                next.lastUpdated = Date.now();
+            }
+
+            return {
+                ...prev,
+                [symbol]: next
+            };
+        });
+
+        if (!wsConnected) {
+            setLastUpdated(Date.now());
+        }
+    }, [coinbaseTicker, wsConnected]);
+
     const getPrice = (symbol) => {
         const normalizedSymbol = symbol.toUpperCase();
         return prices[normalizedSymbol] || null;
@@ -126,18 +181,25 @@ export const GlobalPriceProvider = ({ children }) => {
 
     const refreshPrices = refreshRapidApi;
 
+    const coinbaseTotalPrices = Object.values(prices).filter((p) => p?.coinbasePrice !== undefined && p?.coinbasePrice !== null).length;
+    const coinbaseUsedPrices = Object.values(prices).filter((p) => p?.source === 'coinbase').length;
+
     const value = {
         prices,
         isLoading,
         lastUpdated,
         wsConnected,
+        coinbaseConnected,
         getPrice,
         getBatchPrices,
         refreshRapidApi,
         refreshPrices,
         totalPrices: Object.keys(prices).length,
         binancePrices: Object.values(prices).filter((p) => p.source === 'binance').length,
-        rapidApiPrices: Object.values(prices).filter((p) => p.source === 'rapidapi').length
+        rapidApiPrices: Object.values(prices).filter((p) => p.source === 'rapidapi').length,
+        coinbasePrices: coinbaseUsedPrices,
+        coinbaseTotalPrices,
+        coinbaseUsedPrices
     };
 
     return (
