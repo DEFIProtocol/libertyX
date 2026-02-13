@@ -7,16 +7,24 @@ const normalizeAddress = (value) => {
 
 const isValidEthAddress = (value) => /^0x[a-f0-9]{40}$/i.test(value || '');
 
-const normalizeJson = (value) => {
-	if (!value) return null;
+const normalizeJsonb = (value) => {
+	if (value === undefined || value === null) return null;
 	if (typeof value === 'string') {
 		try {
-			return JSON.parse(value);
+			const parsed = JSON.parse(value);
+			return JSON.stringify(parsed);
 		} catch (error) {
 			return null;
 		}
 	}
-	return value;
+	if (typeof value === 'object') {
+		try {
+			return JSON.stringify(value);
+		} catch (error) {
+			return null;
+		}
+	}
+	return null;
 };
 
 module.exports = (pool) => {
@@ -35,11 +43,14 @@ module.exports = (pool) => {
 				email VARCHAR(255),
 				username VARCHAR(50),
 				chain_addresses JSONB,
+				watchlist JSONB,
 				is_verified_by_coinbase BOOLEAN DEFAULT FALSE,
 				created_at TIMESTAMP DEFAULT NOW(),
 				updated_at TIMESTAMP DEFAULT NOW()
 			)
 		`);
+
+		await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS watchlist JSONB');
 
 		tableReady = true;
 	};
@@ -52,6 +63,7 @@ module.exports = (pool) => {
 			email: row.email,
 			username: row.username,
 			chain_addresses: row.chain_addresses,
+			watchlist: row.watchlist,
 			is_verified_by_coinbase: row.is_verified_by_coinbase,
 			created_at: row.created_at,
 			updated_at: row.updated_at
@@ -105,7 +117,7 @@ module.exports = (pool) => {
 	router.post('/', async (req, res) => {
 		try {
 			await ensureUsersTable();
-			const { wallet_address, email, username, is_verified_by_coinbase, chain_addresses } = req.body || {};
+			const { wallet_address, email, username, is_verified_by_coinbase, chain_addresses, watchlist } = req.body || {};
 			const normalizedWallet = normalizeAddress(wallet_address);
 
 			if (!normalizedWallet || !isValidEthAddress(normalizedWallet)) {
@@ -117,18 +129,20 @@ module.exports = (pool) => {
 				email: email || null,
 				username: username || null,
 				is_verified_by_coinbase: is_verified_by_coinbase === true,
-				chain_addresses: normalizeJson(chain_addresses)
+				chain_addresses: normalizeJsonb(chain_addresses),
+				watchlist: normalizeJsonb(watchlist)
 			};
 
 			const result = await pool.query(
-				`INSERT INTO users (wallet_address, email, username, chain_addresses, is_verified_by_coinbase)
-				 VALUES ($1, $2, $3, $4, $5)
+				`INSERT INTO users (wallet_address, email, username, chain_addresses, watchlist, is_verified_by_coinbase)
+				 VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6)
 				 RETURNING *`,
 				[
 					payload.wallet_address,
 					payload.email,
 					payload.username,
 					payload.chain_addresses,
+					payload.watchlist,
 					payload.is_verified_by_coinbase
 				]
 			);
@@ -147,14 +161,15 @@ module.exports = (pool) => {
 		try {
 			await ensureUsersTable();
 			const { id } = req.params;
-			const { email, username, is_verified_by_coinbase, chain_addresses } = req.body || {};
+			const { email, username, is_verified_by_coinbase, chain_addresses, watchlist } = req.body || {};
 
 			const result = await pool.query(
 				`UPDATE users
 				 SET email = COALESCE($2, email),
 					 username = COALESCE($3, username),
-					 chain_addresses = COALESCE($4, chain_addresses),
-					 is_verified_by_coinbase = COALESCE($5, is_verified_by_coinbase),
+					 chain_addresses = COALESCE($4::jsonb, chain_addresses),
+					 watchlist = COALESCE($5::jsonb, watchlist),
+					 is_verified_by_coinbase = COALESCE($6, is_verified_by_coinbase),
 					 updated_at = NOW()
 				 WHERE id = $1
 				 RETURNING *`,
@@ -162,7 +177,8 @@ module.exports = (pool) => {
 					id,
 					email ?? null,
 					username ?? null,
-					normalizeJson(chain_addresses),
+					normalizeJsonb(chain_addresses),
+					normalizeJsonb(watchlist),
 					is_verified_by_coinbase
 				]
 			);
@@ -182,7 +198,7 @@ module.exports = (pool) => {
 		try {
 			await ensureUsersTable();
 			const walletAddress = normalizeAddress(req.params.address);
-			const { email, username, is_verified_by_coinbase, chain_addresses } = req.body || {};
+			const { email, username, is_verified_by_coinbase, chain_addresses, watchlist } = req.body || {};
 
 			if (!walletAddress || !isValidEthAddress(walletAddress)) {
 				return res.status(400).json({ error: 'Valid wallet_address is required' });
@@ -192,8 +208,9 @@ module.exports = (pool) => {
 				`UPDATE users
 				 SET email = COALESCE($2, email),
 					 username = COALESCE($3, username),
-					 chain_addresses = COALESCE($4, chain_addresses),
-					 is_verified_by_coinbase = COALESCE($5, is_verified_by_coinbase),
+					 chain_addresses = COALESCE($4::jsonb, chain_addresses),
+					 watchlist = COALESCE($5::jsonb, watchlist),
+					 is_verified_by_coinbase = COALESCE($6, is_verified_by_coinbase),
 					 updated_at = NOW()
 				 WHERE wallet_address = $1
 				 RETURNING *`,
@@ -201,7 +218,8 @@ module.exports = (pool) => {
 					walletAddress,
 					email ?? null,
 					username ?? null,
-					normalizeJson(chain_addresses),
+					normalizeJsonb(chain_addresses),
+					normalizeJsonb(watchlist),
 					is_verified_by_coinbase
 				]
 			);

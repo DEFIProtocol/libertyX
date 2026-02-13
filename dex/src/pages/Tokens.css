@@ -270,6 +270,26 @@
   margin-left: auto;
 }
 
+.coin-actions .watchlist-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 10px 16px;
+  height: auto;
+  width: auto;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.coin-actions .watchlist-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%);
+}
+
+.coin-actions .watchlist-btn.added {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+}
+
 .action-button {
   display: inline-flex;
   align-items: center;

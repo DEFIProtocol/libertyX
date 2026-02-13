@@ -2,6 +2,7 @@
 import './AdminAccess.css';
 import { useMemo, useState } from 'react';
 import AdminTokenManager from './AdminTokenManager';
+import AdminUserManager from './AdminUserManager'; // Import the new component
 import { useTokens } from '../../contexts/TokenContext';
 import { useBinanceWs } from '../../contexts/BinanceWsContext';
 import { useGlobalPriceTokens } from '../../hooks/useGlobalPriceTokens';
@@ -116,6 +117,13 @@ function AdminDashboard({ onLogout }) {
                         <span className="tab-icon">💰</span>
                         Pricing Manager
                     </button>
+                    <button 
+                        className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('users')}
+                    >
+                        <span className="tab-icon">👥</span>
+                        User Manager
+                    </button>
                 </div>
                 
                 {/* Tab Content */}
@@ -124,9 +132,13 @@ function AdminDashboard({ onLogout }) {
                         <div className="admin-card full-width">
                             <AdminTokenManager tokens={displayTokens} isLoading={loadingMarket} />
                         </div>
-                    ) : (
+                    ) : activeTab === 'pricing' ? (
                         <div className="admin-card full-width">
                             <AdminPricingManager />
+                        </div>
+                    ) : (
+                        <div className="admin-card full-width">
+                            <AdminUserManager />
                         </div>
                     )}
                 </div>

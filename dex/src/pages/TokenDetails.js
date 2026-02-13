@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTokens } from '../contexts/TokenContext';
 import { useGetCryptoDetailsQuery, useGetCryptoHistoryQuery } from '../hooks';
+import { CheckOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { useUserContext } from '../contexts/UserContext';
 import StandardChart from '../components/TokenPage/StandardChart';
 import MarketOrder from '../components/TokenPage/MarketOrder';
 import TradingViewChart from '../components/TokenPage/TradingViewChart';
@@ -11,6 +13,7 @@ function TokenDetails({ address }) {
   const { uuid } = useParams();
   const navigate = useNavigate();
   const { displayTokens } = useTokens();
+  const { isInWatchlist, toggleWatchlistToken } = useUserContext();
   const [timePeriod, setTimePeriod] = useState('24h');
   const [showFullChart, setShowFullChart] = useState(false);
 
@@ -147,6 +150,7 @@ function TokenDetails({ address }) {
 
   const percentChange = parseFloat(combinedData.change) || 0;
   const isPositiveChange = percentChange >= 0;
+  const isWatchlisted = isInWatchlist(combinedData);
 
   return (
     <div className="token-details-page">
@@ -189,6 +193,15 @@ function TokenDetails({ address }) {
           </div>
 
           <div className="coin-actions">
+            <button
+              className={`watchlist-btn ${isWatchlisted ? 'added' : ''}`}
+              onClick={() => toggleWatchlistToken(combinedData)}
+              type="button"
+              aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+              title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+            >
+              {isWatchlisted ? <CheckOutlined /> : <PlusCircleOutlined />}
+            </button>
             <button 
               className="action-button primary"
               onClick={() => refetchDetails()}

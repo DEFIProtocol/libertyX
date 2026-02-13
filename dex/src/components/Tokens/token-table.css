@@ -178,6 +178,38 @@
   font-style: italic;
 }
 
+.watchlist-col,
+.watchlist-cell {
+  width: 110px;
+  text-align: center;
+}
+
+.watchlist-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.watchlist-btn:hover {
+  transform: translateY(-1px);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.watchlist-btn.added {
+  background: color-mix(in srgb, var(--success) 18%, var(--surface) 82%);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+}
+
 /* Search input (TokenTable) */
 .searchBar {
   width: min(640px, 100%);

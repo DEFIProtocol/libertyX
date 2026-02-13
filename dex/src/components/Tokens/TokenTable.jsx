@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CheckOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import { useTokens } from '../../contexts/TokenContext';
 import { useRapidApi } from '../../contexts/RapidApiContext';
 import { useChainContext } from '../../contexts/ChainContext';
 import { useBinanceWs } from '../../contexts/BinanceWsContext';
 import { useGlobalPrices } from '../../contexts/GlobalPriceContext';
+import { useUserContext } from '../../contexts/UserContext';
 import './token-table.css';
 
 function TokenTable({ tokens: tokensProp = [] }) {
@@ -14,6 +16,7 @@ function TokenTable({ tokens: tokensProp = [] }) {
   const { latestData } = useBinanceWs();
   const { prices: globalPrices } = useGlobalPrices();
   const { selectedChain } = useChainContext();
+  const { isInWatchlist, toggleWatchlistToken } = useUserContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -223,11 +226,13 @@ function TokenTable({ tokens: tokensProp = [] }) {
               <th className="marketcap-col" onClick={() => handleSort('marketCap')}>
                 Market Cap {sortConfig.key === 'marketCap' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
+              <th className="watchlist-col">Watchlist</th>
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedTokens.map((token) => {
               const tokenKey = token.uuid || token.symbol || Math.random();
+              const isWatchlisted = isInWatchlist(token);
               return (
                 <React.Fragment key={tokenKey}>
                   <tr 
@@ -273,6 +278,20 @@ function TokenTable({ tokens: tokensProp = [] }) {
                       ) : (
                         <div className="no-data">—</div>
                       )}
+                    </td>
+                    <td className="watchlist-cell">
+                      <button
+                        className={`watchlist-btn ${isWatchlisted ? 'added' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWatchlistToken(token);
+                        }}
+                        type="button"
+                        aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+                        title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+                      >
+                        {isWatchlisted ? <CheckOutlined /> : <PlusCircleOutlined />}
+                      </button>
                     </td>
                   </tr>
                   

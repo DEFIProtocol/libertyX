@@ -8,6 +8,7 @@ import { useRapidApi } from '../contexts/RapidApiContext';
 import { useGlobalPrices } from '../contexts/GlobalPriceContext';
 import { useTokens } from '../contexts/TokenContext';
 import { useChainContext } from '../contexts/ChainContext';
+import { useUserContext } from '../contexts/UserContext';
 
 
 
@@ -22,6 +23,7 @@ function Account(props) {
   const { prices: globalPrices } = useGlobalPrices();
   const { dbTokens } = useTokens();
   const { selectedChain, availableChains } = useChainContext();
+  const { watchlist } = useUserContext();
   // const { cryptoDetails } = useEthereum();
   const cryptos = useMemo(() => rapidCoins || [], [rapidCoins]);
   const [ holdings, setHoldings ] = useState({
@@ -49,6 +51,32 @@ const normalizeAddresses = (raw) => {
     }
   }
   return raw || {};
+};
+
+const normalizeChains = (rawChains) => {
+  if (!rawChains) return {};
+  if (typeof rawChains === 'string') {
+    try {
+      return JSON.parse(rawChains);
+    } catch (e) {
+      return {};
+    }
+  }
+  return rawChains || {};
+};
+
+const chainKeyMap = {
+  '1': ['ethereum'],
+  '56': ['bnb', 'bsc'],
+  '137': ['polygon'],
+  '43114': ['avalanche'],
+  '42161': ['arbitrum'],
+  '501': ['solana']
+};
+
+const getTokenKey = (token) => {
+  if (!token) return '';
+  return token.uuid || token.id || token.symbol || '';
 };
 
 const getTokenAddressForChain = useCallback((token) => {
@@ -207,6 +235,42 @@ useEffect(() => {
     return rows;
   }, [dbTokens, amountByAddress, rapidBySymbol, globalPrices, getTokenAddressForChain]);
 
+  const watchlistTokens = useMemo(() => {
+    if (!Array.isArray(watchlist) || watchlist.length === 0) return [];
+    const chainKey = String(selectedChain || '');
+    const aliasKeys = chainKeyMap[chainKey] || [];
+
+    return (dbTokens || [])
+      .filter((token) => {
+        const tokenKey = getTokenKey(token);
+        if (!tokenKey || !watchlist.includes(tokenKey)) return false;
+        const chains = normalizeChains(token?.chains);
+        return !!(chains?.[chainKey] || aliasKeys.some((key) => chains?.[key]));
+      })
+      .map((token) => {
+        const symbolKey = token?.symbol?.toUpperCase();
+        const rapidCoin = symbolKey ? rapidBySymbol[symbolKey] : null;
+        const priceEntry = symbolKey ? globalPrices?.[symbolKey] : null;
+        const binancePrice = priceEntry?.binancePrice ?? null;
+        const coinbasePrice = priceEntry?.coinbasePrice ?? null;
+        const rapidPrice = priceEntry?.rapidPrice ?? (rapidCoin?.price ? parseFloat(rapidCoin.price) : null);
+        const resolvedPrice = binancePrice ?? coinbasePrice ?? rapidPrice ?? null;
+
+        const resolvedMarketCap =
+          priceEntry?.marketCap ??
+          priceEntry?.coinData?.marketCap ??
+          rapidCoin?.marketCap ??
+          null;
+
+        return {
+          ...token,
+          price: resolvedPrice,
+          marketCap: resolvedMarketCap,
+          rapidCoin
+        };
+      });
+  }, [watchlist, dbTokens, selectedChain, rapidBySymbol, globalPrices]);
+
   useEffect(() => {
     const calculatedTotalValue = calculateTotalValue(holdingsRows);
     setTotalHoldingsValue(calculatedTotalValue);
@@ -284,9 +348,37 @@ return (
       <span className="column-title-heading"></span>
     </div>
     <div>
-      <div>
-        <p>Watchlist will appear here.</p>
-      </div>
+      {watchlistTokens.length > 0 ? (
+        watchlistTokens.map((token, index) => (
+          <div key={token.uuid || token.symbol || index}>
+            <Card className="daoCard">
+              <div className="cardContainer">
+                <div onClick={() => navigate(`/${token?.name}/${token?.uuid}?chain=${chainLabel}`)}>
+                  <img
+                    className="logo"
+                    src={token.iconUrl || token.image || token.logo_url || token?.rapidCoin?.iconUrl}
+                    alt="noLogo"
+                  />
+                  <div style={{ float: "right" }}>
+                    <h4 className="name">{token.name}</h4>
+                    <span className="symbol">{token.symbol}</span>
+                  </div>
+                </div>
+                <div onClick={() => navigate(`/${token?.name}/${token?.uuid}?chain=${chainLabel}`)} className="type">
+                  {token.marketCap == null ? "--" : millify(token.marketCap)}
+                </div>
+                <div onClick={() => navigate(`/${token?.name}/${token?.uuid}?chain=${chainLabel}`)} className="lastPrice">
+                  {token.price == null ? "--" : millify(token.price)}
+                </div>
+              </div>
+            </Card>
+          </div>
+        ))
+      ) : (
+        <div>
+          <p>No watchlist tokens yet.</p>
+        </div>
+      )}
     </div>
   </div>
 );
