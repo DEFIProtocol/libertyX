@@ -13,6 +13,8 @@ header {
   align-items: center;
   padding-left: 24px;
   padding-right: 24px;
+  background: var(--bg); /* Ensure header has solid background */
+  border-bottom: 1px solid var(--border); /* Optional: adds subtle separation */
 }
 
 .main-content {
@@ -23,7 +25,19 @@ header {
   justify-content: center;
   padding: 2rem;
   width: 100%;
+  background: var(--bg); /* Ensure main content has solid background */
 }
+
+.mainWindow {
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
+  flex: 1;
+  min-height: calc(100vh - 104px);
+  background: var(--bg); /* CRITICAL: Add this! */
+  width: 100%;
+}
+
 .logo{
   width: 32px;
   height: 32px;
@@ -86,13 +100,13 @@ header {
 }
 
 .mainWindow {
- .mainWindow {
   margin-top: 40px;
   display: flex;
   justify-content: center;
-  flex: 1; /* KEY: Makes it grow to fill space */
-  min-height: calc(100vh - 104px); /* Full height minus header */
-}
+  flex: 1;
+  min-height: calc(100vh - 104px);
+  background: var(--bg); /* CRITICAL: Add this! */
+  width: 100%;
 }
 
 .link {

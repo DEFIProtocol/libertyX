@@ -286,7 +286,7 @@ return (
         aria-label="Account settings"
         title="Account settings"
       >
-        <UserOutlined />
+        <UserOutlined style={{ fontSize: '24px' }} />
       </button>
     </div>
     <h1 className="heading">Total Holdings: ${totalHoldingsValue}</h1>
