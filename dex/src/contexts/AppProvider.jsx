@@ -1,7 +1,4 @@
-// Remove this incorrect import:
-// import User from '/Users/beaua/Desktop/libertyX/libertyX/server/routes/user';
-
-// Just keep your providers:
+// Import all your providers
 import { TokensProvider } from './TokenContext';
 import { ChainProvider } from './ChainContext';
 import { RapidApiProvider } from './RapidApiContext';
@@ -10,25 +7,28 @@ import { CoinbaseWsProvider } from './CoinbaseWsContext';
 import { GlobalPriceProvider } from './GlobalPriceContext';
 import { OneInchProvider } from './OneInchContext';
 import { UserProvider } from './UserContext';
+import { ThemeProvider } from './ThemeContext'; // Import the ThemeProvider
 
 export function AppProvider({ children }) {
   return (
-    <TokensProvider>
-      <BinanceWsProvider>
-        <CoinbaseWsProvider>
-          <RapidApiProvider>
-            <GlobalPriceProvider>
-              <UserProvider>
-                <OneInchProvider>
-                  <ChainProvider>
-                    {children}
-                  </ChainProvider>
-                </OneInchProvider>
-              </UserProvider>
-            </GlobalPriceProvider>
-          </RapidApiProvider>
-        </CoinbaseWsProvider>
-      </BinanceWsProvider>
-    </TokensProvider>
+    <ThemeProvider> {/* Wrap everything with ThemeProvider */}
+      <TokensProvider>
+        <BinanceWsProvider>
+          <CoinbaseWsProvider>
+            <RapidApiProvider>
+              <GlobalPriceProvider>
+                <UserProvider>
+                  <OneInchProvider>
+                    <ChainProvider>
+                      {children}
+                    </ChainProvider>
+                  </OneInchProvider>
+                </UserProvider>
+              </GlobalPriceProvider>
+            </RapidApiProvider>
+          </CoinbaseWsProvider>
+        </BinanceWsProvider>
+      </TokensProvider>
+    </ThemeProvider>
   );
 }

@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
 import { useTokens } from '../contexts/TokenContext';
 import { useChainContext } from '../contexts/ChainContext';
-import { useSendTransaction, useWaitForTransaction } from 'wagmi';
+import { useOneInchSdk } from '../hooks';
 import './Swap.css';
+
+const toBaseUnits = (value, decimals) => {
+  const safeValue = Number(value);
+  if (!Number.isFinite(safeValue) || safeValue <= 0) return '0';
+  const [whole, fraction = ''] = safeValue.toString().split('.');
+  const padded = `${fraction}${'0'.repeat(decimals)}`.slice(0, decimals);
+  return `${whole}${padded}`.replace(/^0+(?=\d)/, '') || '0';
+};
 
 function Swap({ address, isConnect }) {
   const { displayTokens } = useTokens();
@@ -83,32 +90,19 @@ function Swap({ address, isConnect }) {
     setTokenTwoAmount('');
   }, [chainTokens]);
   
-  // Transaction State
-  const [txDetails, setTxDetails] = useState({
-    to: null,
-    data: null,
-    value: null,
-  });
-  
-  const axiosHeaders = {
-    headers: {
-      accept: 'application/json',
-      Authorization: `Bearer ${process.env.REACT_APP_1INCH_API_KEY}`,
-    },
-  };
-  
-  const { data, sendTransaction } = useSendTransaction({
-    request: {
-      from: address,
-      to: String(txDetails.to),
-      data: String(txDetails.data),
-      value: String(txDetails.value),
-    },
-  });
-  
-  const { isLoading: txLoading, isSuccess: txSuccess } = useWaitForTransaction({
-    hash: data?.hash,
-  });
+  const {
+    loading: sdkLoading,
+    error: sdkError,
+    getEvmQuote,
+    submitEvmOrder,
+    getEvmStatus,
+    getSolanaQuote,
+    submitSolanaOrder,
+    getSolanaStatus,
+    isEVMChain
+  } = useOneInchSdk();
+
+  const [activeOrder, setActiveOrder] = useState(null);
 
   // Calculate price ratio between two tokens
   const fetchPrices = useCallback(async (tokenOneUuid, tokenTwoUuid) => {
@@ -183,9 +177,37 @@ function Swap({ address, isConnect }) {
 
     setLoading(true);
     try {
-      const tokenAmount = tokenOneAmount * Math.pow(10, tokenOne.decimals || 18);
-      const quoteResponse = await fetchQuote(tokenOne, tokenTwo, tokenAmount);
-      showConfirmationModal(tokenOne, tokenTwo, quoteResponse, tokenAmount);
+      const tokenAmount = toBaseUnits(tokenOneAmount, tokenOne.decimals || 18);
+
+      if (isEVMChain()) {
+        const quoteResponse = await getEvmQuote({
+          fromTokenAddress: tokenOne.address,
+          toTokenAddress: tokenTwo.address,
+          amount: tokenAmount,
+          networkId: selectedChain
+        });
+
+        if (!quoteResponse?.success) {
+          showMessage(quoteResponse?.error || 'Failed to fetch swap quote', 'error');
+          return;
+        }
+
+        showConfirmationModal(tokenOne, tokenTwo, quoteResponse.data, tokenAmount, false);
+        return;
+      }
+
+      const quoteResponse = await getSolanaQuote({
+        srcToken: tokenOne.address,
+        dstToken: tokenTwo.address,
+        amount: tokenAmount
+      });
+
+      if (!quoteResponse?.success) {
+        showMessage(quoteResponse?.error || 'Failed to fetch swap quote', 'error');
+        return;
+      }
+
+      showConfirmationModal(tokenOne, tokenTwo, quoteResponse.data, tokenAmount, true);
     } catch (error) {
       showMessage('Failed to fetch swap quote', 'error');
       console.error('Error:', error);
@@ -194,19 +216,10 @@ function Swap({ address, isConnect }) {
     }
   };
 
-  // Fetch quote from 1inch
-  const fetchQuote = async (srcToken, dstToken, amount) => {
-    const response = await axios.get(
-      `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/quote?src=${srcToken.address}&dst=${dstToken.address}&amount=${amount}&fee=1&includeTokensInfo=true&includeGas=true`,
-      axiosHeaders
-    );
-    return response.data;
-  };
-
   // Show confirmation modal
-  const showConfirmationModal = (src, dst, quoteResponse, amount) => {
-    const fromAmount = amount / Math.pow(10, src.decimals || 18);
-    const toAmount = quoteResponse.toAmount / Math.pow(10, dst.decimals || 18);
+  const showConfirmationModal = (src, dst, quoteResponse, amount, isSolanaFlow) => {
+    const fromAmount = Number(amount) / Math.pow(10, src.decimals || 18);
+    const toAmount = Number(quoteResponse?.toAmount || 0) / Math.pow(10, dst.decimals || 18);
     const fromUSD = fromAmount * prices.firstTokenPrice;
     const toUSD = toAmount * prices.secondTokenPrice;
 
@@ -215,32 +228,55 @@ function Swap({ address, isConnect }) {
     );
 
     if (confirmSwap) {
-      handleSwapConfirmation(src, dst, quoteResponse, amount);
+      handleSwapConfirmation(src, dst, quoteResponse, amount, isSolanaFlow);
     }
   };
 
   // Handle swap confirmation
-  const handleSwapConfirmation = async (src, dst, quoteResponse, amount) => {
+  const handleSwapConfirmation = async (src, dst, quoteResponse, amount, isSolanaFlow) => {
     try {
       setLoading(true);
-      const allowanceResponse = await axios.get(
-        `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/approve/allowance?tokenAddress=${src.address}&walletAddress=${address}`,
-        axiosHeaders
-      );
 
-      if (allowanceResponse.data.allowance === '0') {
-        const approveResponse = await axios.get(
-          `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/approve/transaction?tokenAddress=${src.address}&amount=${amount}`,
-          axiosHeaders
-        );
-        setTxDetails(approveResponse.data);
-        showMessage('Approval required - confirm in wallet', 'info');
+      if (isSolanaFlow) {
+        const response = await submitSolanaOrder({
+          srcToken: src.address,
+          dstToken: dst.address,
+          amount
+        });
+
+        if (!response?.success) {
+          showMessage(response?.error || 'Swap failed', 'error');
+          return;
+        }
+
+        setActiveOrder({
+          type: 'solana',
+          orderHash: response.data?.orderHash,
+          signature: response.data?.signature
+        });
+        showMessage('Swap submitted - tracking status', 'info');
         return;
       }
 
-      const txResponse = await executeTransaction(src, dst, quoteResponse, amount);
-      setTxDetails(txResponse.data.tx);
-      showMessage('Swap initiated - confirm in wallet', 'info');
+      const response = await submitEvmOrder({
+        fromTokenAddress: src.address,
+        toTokenAddress: dst.address,
+        amount,
+        networkId: selectedChain,
+        slippage
+      });
+
+      if (!response?.success) {
+        showMessage(response?.error || 'Swap failed', 'error');
+        return;
+      }
+
+      setActiveOrder({
+        type: 'evm',
+        orderHash: response.data?.orderHash,
+        chainId: selectedChain
+      });
+      showMessage('Swap submitted - tracking status', 'info');
     } catch (error) {
       showMessage('Swap failed: ' + error.message, 'error');
     } finally {
@@ -248,41 +284,61 @@ function Swap({ address, isConnect }) {
     }
   };
 
-  // Execute swap transaction
-  const executeTransaction = async (src, dst, quoteResponse, amount) => {
-    return await axios.get(
-      `${process.env.REACT_APP_BACKEND}/api/1inch/swap/v5.2/${selectedChain}/swap?src=${src.address}&dst=${dst.address}&amount=${amount}&from=${address}&slippage=${slippage}&fee=1&referrer=${process.env.REACT_APP_ADMIN_ADDRESS}&receiver=${address}`,
-      axiosHeaders
-    );
-  };
-
-  // Handle transaction submission
   useEffect(() => {
-    if (txDetails.to && address) {
-      sendTransaction();
-    }
-  }, [txDetails, address, sendTransaction]);
+    if (!activeOrder) return;
 
-  // Handle transaction loading
-  useEffect(() => {
-    if (txLoading) {
-      showMessage('Transaction pending...', 'info');
-    }
-  }, [txLoading]);
+    const interval = setInterval(async () => {
+      try {
+        if (activeOrder.type === 'evm') {
+          const statusResponse = await getEvmStatus({
+            orderHash: activeOrder.orderHash,
+            networkId: activeOrder.chainId
+          });
 
-  // Handle transaction success
-  useEffect(() => {
-    if (txSuccess) {
-      showMessage('Swap successful!', 'success');
-      setTokenOneAmount('');
-      setTokenTwoAmount('');
-    }
-  }, [txSuccess]);
+          const status = statusResponse?.data?.status || statusResponse?.data?.state;
+          if (status === 'Filled' || status === 'filled') {
+            showMessage('Swap successful!', 'success');
+            setTokenOneAmount('');
+            setTokenTwoAmount('');
+            setActiveOrder(null);
+          } else if (status === 'Expired' || status === 'Cancelled' || status === 'Canceled') {
+            showMessage(`Swap ${status}`, 'error');
+            setActiveOrder(null);
+          }
+          return;
+        }
+
+        const statusResponse = await getSolanaStatus({
+          orderHash: activeOrder.orderHash,
+          signature: activeOrder.signature
+        });
+
+        const isActive = statusResponse?.data?.isActive;
+        const confirmation = statusResponse?.data?.confirmationStatus;
+        if (isActive === false || confirmation === 'confirmed' || confirmation === 'finalized') {
+          showMessage('Swap successful!', 'success');
+          setTokenOneAmount('');
+          setTokenTwoAmount('');
+          setActiveOrder(null);
+        }
+      } catch (err) {
+        console.error('Swap status polling error:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeOrder, getEvmStatus, getSolanaStatus]);
 
   const showMessage = (text, type) => {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 3000);
   };
+
+  useEffect(() => {
+    if (sdkError) {
+      showMessage(sdkError, 'error');
+    }
+  }, [sdkError]);
 
   if (!chainTokens?.length) {
     return <div className="swap-page">No tokens available for this chain.</div>;
@@ -402,9 +458,9 @@ function Swap({ address, isConnect }) {
         <button
           className="swap-btn"
           onClick={fetchDexSwap}
-          disabled={!isConnect || !tokenOneAmount || loading || txLoading}
+          disabled={!isConnect || !tokenOneAmount || loading || sdkLoading}
         >
-          {!isConnect ? 'Connect Wallet' : loading || txLoading ? 'Processing...' : 'Swap'}
+          {!isConnect ? 'Connect Wallet' : loading || sdkLoading ? 'Processing...' : 'Swap'}
         </button>
       </div>
 

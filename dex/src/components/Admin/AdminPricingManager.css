@@ -1,8 +1,10 @@
 /* src/components/Admin/AdminPricingManager.css */
 .admin-pricing-manager {
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--surface);
     border-radius: 10px;
+    border: 1px solid var(--border);
+    color: var(--text);
 }
 
 .manager-header {
@@ -11,14 +13,15 @@
     align-items: flex-start;
     margin-bottom: 25px;
     padding: 20px;
-    background: white;
+    background: var(--surface-2);
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 10px var(--overlay);
 }
 
 .header-left h2 {
     margin: 0 0 15px 0;
-    color: #333;
+    color: var(--text);
     font-size: 1.8rem;
 }
 
@@ -35,18 +38,18 @@
 
 .stat-label {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--text-muted);
     font-weight: 500;
 }
 
 .stat-value {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #333;
+    color: var(--text);
 }
 
 .stat-value.streaming {
-    color: #10b981;
+    color: var(--success);
 }
 
 .header-right {
@@ -56,30 +59,32 @@
 
 .comparison-toggle, .details-toggle {
     padding: 10px 20px;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 6px;
-    background: #4f46e5;
-    color: white;
+    background: var(--info);
+    color: var(--accent-contrast);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .comparison-toggle.active, .details-toggle.active {
-    background: #10b981;
+    background: var(--success);
 }
 
 .comparison-toggle:hover, .details-toggle:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px var(--overlay);
+    filter: brightness(1.05);
 }
 
 .controls-row {
     margin-bottom: 20px;
     padding: 15px;
-    background: white;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 10px var(--overlay);
 }
 
 .view-controls {
@@ -96,32 +101,39 @@
 
 .section-toggle {
     padding: 8px 14px;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--border);
     border-radius: 6px;
-    background: white;
-    color: #4f46e5;
+    background: var(--surface);
+    color: var(--info);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .section-toggle.active {
-    background: #4f46e5;
-    color: white;
-    border-color: #4f46e5;
+    background: var(--info);
+    color: var(--accent-contrast);
+    border-color: var(--info);
 }
 
 .section-toggle:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 10px var(--overlay);
 }
 
 .view-select {
     padding: 8px 16px;
-    border: 2px solid #e5e7eb;
+    background: var(--surface);
+    border: 2px solid var(--border);
     border-radius: 6px;
     font-size: 1rem;
     min-width: 200px;
+    color: var(--text);
+}
+
+.view-select:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 .selection-info {
@@ -129,15 +141,16 @@
     align-items: center;
     gap: 15px;
     font-weight: 500;
-    color: #4f46e5;
+    color: var(--info);
 }
 
 .section {
     margin-bottom: 24px;
     padding: 16px;
-    background: white;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 10px var(--overlay);
 }
 
 .section-header {
@@ -150,7 +163,7 @@
 
 .section-header h3 {
     margin: 0;
-    color: #333;
+    color: var(--text);
 }
 
 .compare-controls {
@@ -169,8 +182,8 @@
 
 .update-btn {
     padding: 8px 16px;
-    background: #10b981;
-    color: white;
+    background: var(--success);
+    color: var(--accent-contrast);
     border: none;
     border-radius: 6px;
     font-weight: 600;
@@ -179,24 +192,25 @@
 }
 
 .update-btn:hover {
-    background: #0da271;
+    background: color-mix(in srgb, var(--success) 80%, var(--bg) 20%);
 }
 
 .error-alert {
     margin-top: 10px;
     padding: 12px;
-    background: #fee2e2;
-    border: 1px solid #fca5a5;
+    background: color-mix(in srgb, var(--danger) 15%, var(--surface) 85%);
+    border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border) 70%);
     border-radius: 6px;
-    color: #dc2626;
+    color: var(--danger);
     font-weight: 500;
 }
 
 .table-container {
-    background: white;
+    background: var(--surface);
     border-radius: 8px;
     overflow-x: auto;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 10px var(--overlay);
 }
 
 .pricing-table {
@@ -205,50 +219,52 @@
 }
 
 .pricing-table th {
-    background: #f8fafc;
+    background: var(--surface-2);
     padding: 10px 12px;
     text-align: left;
     font-weight: 600;
-    color: #475569;
-    border-bottom: 2px solid #e2e8f0;
+    color: var(--text);
+    border-bottom: 2px solid var(--border);
     font-size: 0.9rem;
 }
 
 .pricing-table td {
     padding: 10px 12px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--border);
     font-size: 0.9rem;
+    color: var(--text);
 }
 
 .pricing-table tr:hover {
-    background: #f8fafc;
+    background: color-mix(in srgb, var(--surface) 90%, var(--accent) 10%);
 }
 
 .pricing-table tr.selected {
-    background: #e0f2fe;
+    background: color-mix(in srgb, var(--accent) 15%, var(--surface) 85%);
 }
 
 .pricing-table tr.no-price td {
-    background: #fef2f2;
-    color: #991b1b;
+    background: color-mix(in srgb, var(--danger) 10%, var(--surface) 90%);
+    color: var(--danger);
 }
 
 .pricing-table tr.mismatch td {
-    background: #fffbeb;
+    background: color-mix(in srgb, var(--warning) 10%, var(--surface) 90%);
 }
 
 .pricing-table tr.streaming td {
-    background: #f0fdf4;
+    background: color-mix(in srgb, var(--success) 10%, var(--surface) 90%);
 }
 
 .pricing-table tr.stale td {
-    background: #f9fafb;
-    color: #6b7280;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    opacity: 0.8;
 }
 
 .symbol-cell {
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text);
 }
 
 .db-price-cell, .current-price-cell {
@@ -258,17 +274,17 @@
 .price-value {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text);
 }
 
 .price-meta {
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--text-muted);
     margin-top: 4px;
 }
 
 .no-price-text {
-    color: #9ca3af;
+    color: var(--text-muted);
     font-style: italic;
 }
 
@@ -277,37 +293,42 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: 600;
+    display: inline-block;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
 }
 
 .source-badge.binance {
-    background: #f0b90b;
+    background: #f0b90b; /* Keep brand colors */
     color: #1e2026;
 }
 
 .source-badge.coinbase {
-    background: #0052ff;
+    background: #0052ff; /* Keep brand colors */
     color: white;
 }
 
 .source-badge.unknown {
-    background: #9ca3af;
-    color: white;
+    background: var(--surface-2);
+    color: var(--text-muted);
 }
 
 .difference {
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 6px;
+    display: inline-block;
 }
 
 .difference.positive {
-    background: #d1fae5;
-    color: #065f46;
+    background: color-mix(in srgb, var(--success) 20%, var(--surface) 80%);
+    color: var(--success);
 }
 
 .difference.negative {
-    background: #fee2e2;
-    color: #991b1b;
+    background: color-mix(in srgb, var(--danger) 20%, var(--surface) 80%);
+    color: var(--danger);
 }
 
 .status-badge {
@@ -315,26 +336,29 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: 600;
+    display: inline-block;
+    border: 1px solid transparent;
 }
 
 .status-badge.live {
-    background: #10b981;
-    color: white;
+    background: var(--success);
+    color: var(--accent-contrast);
 }
 
 .status-badge.cached {
-    background: #dbeafe;
-    color: #1e40af;
+    background: color-mix(in srgb, var(--info) 20%, var(--surface) 80%);
+    color: var(--info);
+    border-color: color-mix(in srgb, var(--info) 40%, var(--border) 60%);
 }
 
 .status-badge.error {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--danger);
+    color: var(--accent-contrast);
 }
 
 .status-badge.stale {
-    background: #f59e0b;
-    color: white;
+    background: var(--warning);
+    color: var(--accent-contrast);
 }
 
 .ws-status-cell {
@@ -347,6 +371,7 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: 600;
+    border: 1px solid transparent;
 }
 
 .compact-cell {
@@ -369,36 +394,37 @@
 }
 
 .ws-badge.active {
-    background: #10b981;
-    color: white;
+    background: var(--success);
+    color: var(--accent-contrast);
 }
 
 .ws-badge.inactive {
-    background: #f59e0b;
-    color: white;
+    background: var(--warning);
+    color: var(--accent-contrast);
 }
 
 .ws-badge.connected {
-    background: #4f46e5;
-    color: white;
+    background: var(--info);
+    color: var(--accent-contrast);
 }
 
 .ws-badge.disconnected {
-    background: #ef4444;
-    color: white;
+    background: var(--danger);
+    color: var(--accent-contrast);
 }
 
 .price-stats {
     margin-top: 30px;
     padding: 20px;
-    background: white;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 10px var(--overlay);
 }
 
 .price-stats h3 {
     margin: 0 0 20px 0;
-    color: #333;
+    color: var(--text);
 }
 
 .stats-grid {
@@ -409,34 +435,35 @@
 
 .price-stat-card {
     padding: 15px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background: #f8fafc;
+    background: var(--surface);
 }
 
 .stat-symbol {
     font-size: 1.2rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text);
     margin-bottom: 8px;
 }
 
 .stat-price {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #10b981;
+    color: var(--success);
     margin-bottom: 8px;
 }
 
 .stat-source {
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--text-muted);
     margin-bottom: 4px;
 }
 
 .stat-time {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: var(--text-muted);
+    opacity: 0.8;
 }
 
 .loading {
@@ -445,7 +472,7 @@
     align-items: center;
     height: 200px;
     font-size: 1.2rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 /* Responsive */

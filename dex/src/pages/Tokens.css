@@ -54,7 +54,7 @@
 .refresh-button {
   padding: 10px 20px;
   background: var(--success);
-  color: #ffffff;
+  color: var(--accent-contrast); /* Changed from #ffffff */
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -66,7 +66,7 @@
 }
 
 .refresh-button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--success) 80%, #000 20%);
+  background: color-mix(in srgb, var(--success) 80%, var(--bg) 20%); /* Changed from #000 */
 }
 
 .refresh-button:disabled {
@@ -233,7 +233,7 @@
 
 .retry-button {
   background: var(--danger);
-  color: #ffffff;
+  color: var(--accent-contrast); /* Changed from #ffffff */
   border: none;
   padding: 10px 20px;
   border-radius: 6px;
@@ -244,7 +244,7 @@
 }
 
 .retry-button:hover {
-  background: color-mix(in srgb, var(--danger) 80%, #000 20%);
+  background: color-mix(in srgb, var(--danger) 80%, var(--bg) 20%); /* Changed from #000 */
 }
 
 /* Coin Header Card */
@@ -598,7 +598,7 @@
 }
 
 .copy-btn:hover {
-  background: color-mix(in srgb, var(--accent) 80%, #000 20%);
+  background: color-mix(in srgb, var(--accent) 80%, var(--bg) 20%); /* Changed from #000 */
 }
 
 /* Description Card */

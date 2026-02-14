@@ -15,28 +15,25 @@
     
     <!-- CORRECT: Style tag goes here -->
     <style>
-      body {
-        margin: 0;
-        background-color: #0f1115;
-      }
-      #root:empty::before {
-        content: '';
-        display: block;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 150px;
-        height: 150px;
-        background: url('/OutlinedLogo.png') center/contain no-repeat;
-        opacity: 0.8;
-      }
-      /* Optional: fade out when React loads */
-      #root:not(:empty) #root:empty::before {
-        opacity: 0;
-        transition: opacity 0.5s ease;
-      }
-    </style>
+  /* Just keep the loading spinner styles */
+  #root:empty::before {
+    content: '';
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 150px;
+    height: 150px;
+    background: url('/OutlinedLogo.png') center/contain no-repeat;
+    opacity: 0.8;
+  }
+  /* Optional: fade out when React loads */
+  #root:not(:empty) #root:empty::before {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+</style>
     
     <title>LibertyX</title>
   </head>

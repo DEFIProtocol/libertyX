@@ -43,18 +43,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
   min-height: 100%;
   min-width: 100vw;
-  background: var(--bg);
-  color: var(--text);
 }
 
+/* FIXED: Remove the gradient and set background directly */
 body {
-  background: linear-gradient(180deg, var(--bg) 28%, var(--surface) 75%);
-  background-attachment: fixed;
+  background: var(--bg);  /* Use solid background instead of gradient */
+  color: var(--text);
   overscroll-behavior: none;
 }
 
+/* OPTIONAL: If you want to keep the gradient effect, apply it to a fixed background layer instead */
+/* But for now, let's keep it simple with solid colors */
+
 #root {
   min-height: 100vh;
+  background: var(--bg);  /* Ensure root also has solid background */
 }
 
 code {
@@ -62,6 +65,7 @@ code {
     monospace;
 }
 
+/* Rest of your existing styles remain the same */
 .ant-input {
   background-color: var(--surface) !important;
   color: var(--text) !important;
