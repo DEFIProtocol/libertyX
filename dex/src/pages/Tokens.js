@@ -90,7 +90,7 @@ function Tokens() {
   // Refresh all data
   const handleRefreshAll = async () => {
     try {
-      await fetch('/api/global-prices/refresh-rapidapi', { method: 'POST' });
+      await fetch(`${process.env.REACT_APP_API_BASE_URL}/global-prices/refresh-rapidapi`, { method: 'POST' });
     } catch (error) {
       // ignore refresh errors; still refetch tokens
     }

@@ -21,13 +21,13 @@ export const GlobalPriceProvider = ({ children }) => {
 
     const refreshRapidApi = async () => {
         try {
-            const response = await fetch('/api/global-prices/refresh-rapidapi', {
+            const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/global-prices/refresh-rapidapi`, {
                 method: 'POST'
             });
             const data = await response.json();
 
             if (data.success) {
-                const refreshResponse = await fetch('/api/global-prices/all');
+                const refreshResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL}/global-prices/all`);
                 const refreshData = await refreshResponse.json();
 
                 if (refreshData.success) {
@@ -46,7 +46,7 @@ export const GlobalPriceProvider = ({ children }) => {
         const fetchInitialPrices = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetch('/api/global-prices/all');
+                const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/global-prices/all`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -57,7 +57,7 @@ export const GlobalPriceProvider = ({ children }) => {
                     if (rapidCount === 0 && !didTryRapidRef.current) {
                         didTryRapidRef.current = true;
                         await refreshRapidApi();
-                        const refreshResponse = await fetch('/api/global-prices/all');
+                        const refreshResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL}/global-prices/all`);
                         const refreshData = await refreshResponse.json();
                         if (refreshData.success) {
                             setPrices(refreshData.prices);

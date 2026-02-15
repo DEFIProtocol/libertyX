@@ -10,7 +10,7 @@ export const useGlobalPriceTokens = () => {
             setLoading(true);
             setError(null);
 
-            const response = await fetch('/api/global-prices/tokens');
+            const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/global-prices/tokens`);
             const data = await response.json();
 
             if (!response.ok || !data?.success) {

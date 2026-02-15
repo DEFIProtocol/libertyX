@@ -102,7 +102,7 @@ function AdminPricingManager() {
         const fetchSnapshot = async () => {
             setIsLoadingSnapshot(true);
             try {
-                const response = await fetch('/api/binance/all-prices');
+                const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/binance/all-prices`);
                 const data = await response.json();
                 setInitialSnapshot(data?.prices || {});
                 console.log(`📊 Initial snapshot: ${Object.keys(data?.prices || {}).length} symbols`);
@@ -122,7 +122,7 @@ function AdminPricingManager() {
         const fetchCoinbaseSnapshot = async () => {
             setIsLoadingCoinbaseSnapshot(true);
             try {
-                const response = await fetch('/api/coinbase/all-prices');
+                const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/coinbase/all-prices`);
                 const data = await response.json();
                 setCoinbaseSnapshot(data?.prices || {});
                 console.log(`📊 Coinbase snapshot: ${Object.keys(data?.prices || {}).length} symbols`);
