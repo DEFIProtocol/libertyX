@@ -298,3 +298,27 @@ server.listen(PORT, () => {
     console.log(`  ws://localhost:${PORT}/ws/binance`);
     console.log(`  ws://localhost:${PORT}/ws/coinbase`);
 });
+
+//add static file serving
+
+const frontendBuildPath = path.join(__dirname, '../dex/build'); // Adjust this path as needed
+
+// Check if the frontend build directory exists
+const fs = require('fs');
+if (fs.existsSync(frontendBuildPath)) {
+    console.log('Serving static files from:', frontendBuildPath);
+    
+    // Serve static files
+    app.use(express.static(frontendBuildPath));
+    
+    // For any route that's not an API route, serve the index.html
+    app.get('*', (req, res, next) => {
+        // Skip API routes
+        if (req.path.startsWith('/api/') || req.path.startsWith('/ws/')) {
+            return next();
+        }
+        res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    });
+} else {
+    console.log('Frontend build directory not found at:', frontendBuildPath);
+}
