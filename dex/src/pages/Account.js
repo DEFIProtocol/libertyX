@@ -122,7 +122,7 @@ useEffect(() => {
       return;
     }
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/infura/holdings?address=${address}&chainId=${selectedChain}`);
+      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/infura/holdings?address=${address}&chainId=${selectedChain}`);
       const data = await response.json();
 
       console.log('[account] infura holdings response', data);

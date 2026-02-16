@@ -36,7 +36,7 @@ function Account(props) {
 
 const addToWatchlist = async (uuid) => {
   try {
-    const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/addToWatchlist`, {
+    const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/addToWatchlist`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ const addToWatchlist = async (uuid) => {
 
 const removeFromWatchlist = async (uuid) => {
   try {
-    const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/removeFromWatchlist`, {
+    const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/removeFromWatchlist`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -134,7 +134,7 @@ useEffect(() => {
   const tokenHoldings = async () => {
     if (!address) return;
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/infura/holdings?address=${address}&chainId=${selectedChain}`);
+      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/infura/holdings?address=${address}&chainId=${selectedChain}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -256,7 +256,7 @@ useEffect(() => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/data?user=${address}`);
+        const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/data?user=${address}`);
         const data = await response.json();
         console.log(data);
         const watchlistUuids = data.map((item) => item.uuid);
