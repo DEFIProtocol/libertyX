@@ -7,7 +7,7 @@ import { useUserCrud } from '../hooks/useUserCrud';
 const UserContext = createContext();
 
 // Fix: Split the base URL and API path
-const API_BASE = process.env.REACT_APP_BACKEND || 'http://libertyx.onrender.com';
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://libertyx.onrender.com';
 const USERS_API_URL = `${API_BASE}/api/users`; // This will be the base for all user routes
 
 const normalizeWatchlist = (raw) => {
