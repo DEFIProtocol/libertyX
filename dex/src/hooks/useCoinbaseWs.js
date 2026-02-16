@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const DEFAULT_PROXY_WS_URL = (() => {
-    if (typeof window === 'undefined') return 'ws://localhost:3001/ws/coinbase';
+    if (typeof window === 'undefined') return 'ws://libertyx.onrender.com/ws/coinbase';
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     return `${protocol}://${window.location.hostname}:3001/ws/coinbase`;
 })();

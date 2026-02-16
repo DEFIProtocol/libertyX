@@ -20,7 +20,7 @@ export const TokensProvider = ({ children }) => {
     const [comparisonData, setComparisonData] = useState([]); // Array of tokens with both sources
     const [comparisonMode, setComparisonMode] = useState(false); // true = show comparison
 
-    const API_URL = 'http://localhost:3001/api/tokens';
+    const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://libertyx.onrender.com/api/tokens';
 
     // Fetch database tokens
     const fetchDbTokens = useCallback(async () => {

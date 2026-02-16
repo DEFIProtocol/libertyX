@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3001/api/tokens';
+const API_URL = `${process.env.REACT_APP_API_BASE_URL}/tokens` || 'https://libertyx.onrender.com/api/tokens';
 
 /**
  * useTokenCrud - Hook for token CRUD operations

@@ -6,7 +6,7 @@ import { useUserCrud } from '../hooks/useUserCrud';
 
 const UserContext = createContext();
 
-const API_BASE = process.env.REACT_APP_BACKEND || 'http://localhost:3001';
+const API_BASE = process.env.REACT_APP_BACKEND || 'http://libertyx.onrender.com';
 const USERS_URL = `${API_BASE}/api/users`;
 
 const normalizeWatchlist = (raw) => {

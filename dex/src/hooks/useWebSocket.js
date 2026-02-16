@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 const DEFAULT_WS_URL = (() => {
-    if (typeof window === 'undefined') return 'ws://localhost:3001/ws/binance';
+    if (typeof window === 'undefined') return 'ws://libertyx.onrender.com/ws/binance';
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     return `${protocol}://${window.location.hostname}:3001/ws/binance`;
 })();

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import axios from 'axios';
 import { useChainContext } from '../contexts/ChainContext'; // Import your existing ChainContext
 
-const API_BASE_URL = `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api'}/fusion`;
+const API_BASE_URL = `${process.env.REACT_APP_API_BASE_URL || 'http://libertyx.onrender.com/api'}/fusion`;
 
 // Chain ID to key/name mapping based on your ChainContext
 const CHAIN_ID_MAPPING = {

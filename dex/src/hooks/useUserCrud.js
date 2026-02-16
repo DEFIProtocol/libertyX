@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3001/api/users';
+const API_URL = `${process.env.REACT_APP_API_BASE_URL}/users` || 'https://libertyx.onrender.com/api/users';
 
 export const useUserCrud = () => {
     const [loading, setLoading] = useState(false);
