@@ -22,8 +22,8 @@ export const TokensProvider = ({ children }) => {
     const [comparisonMode, setComparisonMode] = useState(false);
 
     // Fix: Remove '/api/tokens' from base URL since it will be appended in routes
-    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://libertyx.onrender.com';
-    const TOKENS_API_URL = `${API_BASE_URL}/api/tokens`;
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://libertyx.onrender.com/api';
+    const TOKENS_API_URL = `${API_BASE_URL}/tokens`;
 
     // Fetch database tokens
     const fetchDbTokens = useCallback(async () => {
