@@ -6,8 +6,8 @@ const axios = require('axios');
 const { binanceLimiter, normalizeSymbol, createTradingPair, priceCache } = require('../utils/exchangeUtils');
 
 // Binance API configuration
-const BINANCE_API_KEY = process.env.BINANCE_API_KEY || '';
-const BINANCE_API_SECRET = process.env.BINANCE_API_SECRET || 'cSvHibR4sz';
+const BINANCE_API_KEY = process.env.BINANCE_API_KEY;
+const BINANCE_API_SECRET = process.env.BINANCE_API_SECR;
 const BINANCE_BASE_URL = 'https://api.binance.us/api/v3';
 const BINANCE_WS_URL = 'wss://stream.binance.us:9443/ws';
 
