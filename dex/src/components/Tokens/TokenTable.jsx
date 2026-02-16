@@ -11,7 +11,8 @@ import './token-table.css';
 
 function TokenTable({ tokens: tokensProp = [] }) {
   const navigate = useNavigate();
-  const { dbTokens } = useTokens();
+  // Get both dbTokens and jsonTokens from context
+  const { dbTokens, jsonTokens, loadingDb, loadingJson } = useTokens();
   const { coins } = useRapidApi();
   const { latestData } = useBinanceWs();
   const { prices: globalPrices } = useGlobalPrices();
@@ -31,10 +32,30 @@ function TokenTable({ tokens: tokensProp = [] }) {
     return map;
   }, [coins]);
 
+  // Determine which token source to use - FALLBACK LOGIC HERE
   const baseTokens = useMemo(() => {
-    if (Array.isArray(dbTokens) && dbTokens.length) return dbTokens;
-    return tokensProp;
-  }, [dbTokens, tokensProp]);
+    // First priority: dbTokens if they exist
+    if (Array.isArray(dbTokens) && dbTokens.length > 0) {
+      console.log('✅ Using database tokens:', dbTokens.length);
+      return dbTokens;
+    }
+    
+    // Second priority: tokensProp if provided and dbTokens is empty
+    if (Array.isArray(tokensProp) && tokensProp.length > 0) {
+      console.log('📋 Using tokens from props:', tokensProp.length);
+      return tokensProp;
+    }
+    
+    // Third priority: jsonTokens as fallback if dbTokens is empty
+    if (Array.isArray(jsonTokens) && jsonTokens.length > 0) {
+      console.log('📄 Falling back to JSON tokens:', jsonTokens.length);
+      return jsonTokens;
+    }
+    
+    // Last resort: empty array
+    console.log('⚠️ No tokens available from any source');
+    return [];
+  }, [dbTokens, jsonTokens, tokensProp]);
 
   const binanceBySymbol = useMemo(() => {
     const map = {};
@@ -197,6 +218,17 @@ function TokenTable({ tokens: tokensProp = [] }) {
     setExpandedRows(newExpanded);
   };
 
+  // Show loading state if both sources are loading and we have no tokens
+  if ((loadingDb && loadingJson) && baseTokens.length === 0) {
+    return (
+      <div className="token-table-container">
+        <div className="loading-state">
+          <p>Loading tokens...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="token-table-container">
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -207,6 +239,10 @@ function TokenTable({ tokens: tokensProp = [] }) {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        {/* Optional: Show data source indicator */}
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+          {dbTokens.length > 0 ? '📊 Database' : '📄 JSON'} • {baseTokens.length} tokens
+        </div>
       </div>
       
       {/* Table */}
@@ -298,7 +334,7 @@ function TokenTable({ tokens: tokensProp = [] }) {
                   {/* Expanded Details */}
                   {token.uuid && expandedRows.has(token.uuid) && (
                     <tr className="details-row">
-                      <td colSpan="4">
+                      <td colSpan="5">
                         <div className="token-details-expanded">
                           <div className="details-grid">
                             <div className="detail-item">
@@ -366,6 +402,12 @@ function TokenTable({ tokens: tokensProp = [] }) {
           <div className="no-results">
             <p>No tokens found matching "{searchTerm}"</p>
             <button onClick={() => setSearchTerm('')}>Clear search</button>
+          </div>
+        )}
+
+        {filteredAndSortedTokens.length === 0 && !searchTerm && (
+          <div className="no-results">
+            <p>No tokens available for the selected chain</p>
           </div>
         )}
       </div>
