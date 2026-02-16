@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
-const DEFAULT_WS_URL = (() => {
-    if (typeof window === 'undefined') return 'ws://libertyx.onrender.com/ws/binance';
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${protocol}://${window.location.hostname}:3001/ws/binance`;
-})();
+// Use the same base URL pattern as your API calls
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'https://libertyx.onrender.com';
+// Convert https to wss, http to ws
+const WS_BASE = API_BASE.replace(/^http/, 'ws');
+const DEFAULT_WS_URL = `${WS_BASE}/ws/binance`;
 
+// Allow override via environment variable
 const WS_URL = process.env.REACT_APP_BINANCE_WS_URL || DEFAULT_WS_URL;
 
 export const useWebSocket = () => {
@@ -14,16 +15,23 @@ export const useWebSocket = () => {
     const wsRef = useRef(null);
 
     useEffect(() => {
+        console.log('🔌 Connecting to Binance WebSocket:', WS_URL); // Debug log
+        
         const ws = new WebSocket(WS_URL);
         wsRef.current = ws;
 
         ws.onopen = () => {
+            console.log('✅ Binance WebSocket connected');
             setIsConnected(true);
         };
-        ws.onclose = () => {
+        
+        ws.onclose = (event) => {
+            console.log('❌ Binance WebSocket disconnected', event.code, event.reason);
             setIsConnected(false);
         };
-        ws.onerror = () => {
+        
+        ws.onerror = (error) => {
+            console.error('⚠️ Binance WebSocket error:', error);
             setIsConnected(false);
         };
 

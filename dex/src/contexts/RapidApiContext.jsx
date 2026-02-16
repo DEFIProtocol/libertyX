@@ -13,7 +13,7 @@ export const RapidApiProvider = ({ children }) => {
         try {
             setIsLoading(true);
             setError(null);
-            const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/rapidapi/coins?limit=${limit}`);
+            const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/rapidapi/coins?limit=${limit}`);
             const json = await response.json();
 
             if (json.success) {
