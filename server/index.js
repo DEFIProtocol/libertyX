@@ -36,11 +36,15 @@ app.set('pool', pool);
 
 // Middleware
 app.set('trust proxy', 1);
-// With this:
-app.use(cors({
-    origin: ['https://libertyx-1.onrender.com', 'http://localhost:3000'],
-    credentials: true
-}));
+app.use(
+  cors({
+    origin: [
+      'https://libertyx.onrender.com',
+      'https://libertyx-1.onrender.com',
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Import routes
