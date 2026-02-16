@@ -1,3 +1,4 @@
+// /dex/src/contexts/TokenContexts.jsx
 // TokenContext.jsx - UPDATED for comparison mode
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
@@ -17,10 +18,12 @@ export const TokensProvider = ({ children }) => {
     const [jsonTokens, setJsonTokens] = useState([]);
     const [loading, setLoading] = useState({ db: true, json: true });
     const [errors, setErrors] = useState({ db: null, json: null });
-    const [comparisonData, setComparisonData] = useState([]); // Array of tokens with both sources
-    const [comparisonMode, setComparisonMode] = useState(false); // true = show comparison
+    const [comparisonData, setComparisonData] = useState([]);
+    const [comparisonMode, setComparisonMode] = useState(false);
 
-    const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://libertyx.onrender.com/api/tokens';
+    // Fix: Remove '/api/tokens' from base URL since it will be appended in routes
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://libertyx.onrender.com';
+    const TOKENS_API_URL = `${API_BASE_URL}/api/tokens`;
 
     // Fetch database tokens
     const fetchDbTokens = useCallback(async () => {
@@ -28,7 +31,8 @@ export const TokensProvider = ({ children }) => {
             setLoading(prev => ({ ...prev, db: true }));
             setErrors(prev => ({ ...prev, db: null }));
             
-            const response = await axios.get(`${API_URL}/db`);
+            console.log('Fetching from:', `${TOKENS_API_URL}/db`); // Debug log
+            const response = await axios.get(`${TOKENS_API_URL}/db`);
             const tokens = response.data.data || [];
             setDbTokens(tokens);
             
@@ -36,6 +40,7 @@ export const TokensProvider = ({ children }) => {
             return tokens;
         } catch (error) {
             console.error('❌ Error fetching database tokens:', error);
+            console.error('Full error:', error.response || error.message); // Debug log
             const errorMsg = error.response?.data?.error || 'Failed to load from database';
             setErrors(prev => ({ ...prev, db: errorMsg }));
             setDbTokens([]);
@@ -43,7 +48,7 @@ export const TokensProvider = ({ children }) => {
         } finally {
             setLoading(prev => ({ ...prev, db: false }));
         }
-    }, []);
+    }, [TOKENS_API_URL]);
 
     // Fetch JSON tokens
     const fetchJsonTokens = useCallback(async () => {
@@ -51,7 +56,8 @@ export const TokensProvider = ({ children }) => {
             setLoading(prev => ({ ...prev, json: true }));
             setErrors(prev => ({ ...prev, json: null }));
             
-            const response = await axios.get(`${API_URL}/json`);
+            console.log('Fetching from:', `${TOKENS_API_URL}/json`); // Debug log
+            const response = await axios.get(`${TOKENS_API_URL}/json`);
             const tokens = response.data.data || [];
             setJsonTokens(tokens);
             
@@ -59,6 +65,7 @@ export const TokensProvider = ({ children }) => {
             return tokens;
         } catch (error) {
             console.error('❌ Error fetching JSON tokens:', error);
+            console.error('Full error:', error.response || error.message); // Debug log
             const errorMsg = error.response?.data?.error || 'Failed to load from JSON file';
             setErrors(prev => ({ ...prev, json: errorMsg }));
             setJsonTokens([]);
@@ -66,7 +73,7 @@ export const TokensProvider = ({ children }) => {
         } finally {
             setLoading(prev => ({ ...prev, json: false }));
         }
-    }, []);
+    }, [TOKENS_API_URL]);
 
     // Fetch both and create comparison data
     const fetchAllTokens = useCallback(async () => {
@@ -83,13 +90,13 @@ export const TokensProvider = ({ children }) => {
             
             // Create comparison array - merge tokens from both sources by symbol
             const allSymbols = new Set([
-                ...dbTokens.map(t => t.symbol.toLowerCase()),
-                ...jsonTokens.map(t => t.symbol.toLowerCase())
+                ...dbTokens.map(t => t.symbol?.toLowerCase()).filter(Boolean),
+                ...jsonTokens.map(t => t.symbol?.toLowerCase()).filter(Boolean)
             ]);
             
             const comparison = Array.from(allSymbols).map(symbol => {
-                const dbToken = dbTokens.find(t => t.symbol.toLowerCase() === symbol);
-                const jsonToken = jsonTokens.find(t => t.symbol.toLowerCase() === symbol);
+                const dbToken = dbTokens.find(t => t.symbol?.toLowerCase() === symbol);
+                const jsonToken = jsonTokens.find(t => t.symbol?.toLowerCase() === symbol);
                 
                 return {
                     symbol: symbol.toUpperCase(),
@@ -131,7 +138,7 @@ export const TokensProvider = ({ children }) => {
         if (comparisonMode) {
             return comparisonData;
         }
-        return dbTokens; // Default to database when not in comparison
+        return dbTokens;
     };
 
     // Get stats for comparison
@@ -151,16 +158,15 @@ export const TokensProvider = ({ children }) => {
         };
     };
 
-    // CRUD operations (only work on database)
+    // CRUD operations
     const addToken = async (tokenData) => {
         try {
-            const response = await axios.post(API_URL, tokenData);
+            console.log('Adding token to:', TOKENS_API_URL); // Debug log
+            const response = await axios.post(TOKENS_API_URL, tokenData);
             const newToken = response.data;
             
-            // Update database tokens
             setDbTokens(prev => [...prev, newToken]);
             
-            // Update comparison data if needed
             if (comparisonMode) {
                 await fetchAllTokens();
             }
@@ -177,15 +183,14 @@ export const TokensProvider = ({ children }) => {
 
     const updateToken = async (symbol, tokenData) => {
         try {
-            const response = await axios.put(`${API_URL}/${symbol}`, tokenData);
+            console.log('Updating token at:', `${TOKENS_API_URL}/${symbol}`); // Debug log
+            const response = await axios.put(`${TOKENS_API_URL}/${symbol}`, tokenData);
             const updatedToken = response.data;
             
-            // Update database tokens
             setDbTokens(prev => prev.map(t => 
-                t.symbol.toLowerCase() === symbol.toLowerCase() ? updatedToken : t
+                t.symbol?.toLowerCase() === symbol.toLowerCase() ? updatedToken : t
             ));
             
-            // Update comparison data if needed
             if (comparisonMode) {
                 await fetchAllTokens();
             }
@@ -202,14 +207,13 @@ export const TokensProvider = ({ children }) => {
 
     const deleteToken = async (symbol) => {
         try {
-            await axios.delete(`${API_URL}/${symbol}`);
+            console.log('Deleting token at:', `${TOKENS_API_URL}/${symbol}`); // Debug log
+            await axios.delete(`${TOKENS_API_URL}/${symbol}`);
             
-            // Remove from database tokens
             setDbTokens(prev => prev.filter(t => 
-                t.symbol.toLowerCase() !== symbol.toLowerCase()
+                t.symbol?.toLowerCase() !== symbol.toLowerCase()
             ));
             
-            // Update comparison data if needed
             if (comparisonMode) {
                 await fetchAllTokens();
             }
@@ -231,44 +235,29 @@ export const TokensProvider = ({ children }) => {
 
     return (
         <TokensContext.Provider value={{
-            // Raw data
             dbTokens,
             jsonTokens,
             comparisonData,
-            
-            // Display data
             displayTokens: getDisplayTokens(),
             comparisonMode,
-            
-            // Loading states
             loading,
             loadingDb: loading.db,
             loadingJson: loading.json,
             loadingAll: loading.db || loading.json,
-            
-            // Errors
             errors,
             errorDb: errors.db,
             errorJson: errors.json,
-            
-            // Actions
             fetchDbTokens,
             fetchJsonTokens,
             fetchAllTokens,
             refreshAll: fetchAllTokens,
             toggleComparisonMode,
-            
-            // CRUD operations
             addToken,
             updateToken,
             deleteToken,
-            
-            // Stats
             dbCount: dbTokens.length,
             jsonCount: jsonTokens.length,
             comparisonStats: getComparisonStats(),
-            
-            // Helpers
             getDisplayTokens,
             getComparisonStats
         }}>

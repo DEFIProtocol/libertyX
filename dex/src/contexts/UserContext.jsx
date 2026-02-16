@@ -6,8 +6,9 @@ import { useUserCrud } from '../hooks/useUserCrud';
 
 const UserContext = createContext();
 
+// Fix: Split the base URL and API path
 const API_BASE = process.env.REACT_APP_BACKEND || 'http://libertyx.onrender.com';
-const USERS_URL = `${API_BASE}/api/users`;
+const USERS_API_URL = `${API_BASE}/api/users`; // This will be the base for all user routes
 
 const normalizeWatchlist = (raw) => {
     if (!raw) return [];
@@ -60,11 +61,13 @@ export const UserProvider = ({ children }) => {
     const fetchAllUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await axios.get(USERS_URL);
+            console.log('Fetching all users from:', USERS_API_URL); // Debug log
+            const response = await axios.get(USERS_API_URL);
             setUsers(response.data.data || []);
             setCached(true);
         } catch (err) {
             console.error('Failed to fetch users:', err);
+            console.error('Error details:', err.response || err.message); // Debug log
         } finally {
             setLoading(false);
         }
@@ -81,6 +84,7 @@ export const UserProvider = ({ children }) => {
             return { success: false, error: 'No wallet address' };
         }
 
+        console.log('Loading user by wallet:', `${USERS_API_URL}/wallet/${walletAddress}`); // Debug log
         const result = await getUserByWallet(walletAddress);
         if (result.success) {
             const nextUser = result.data || null;
@@ -101,6 +105,7 @@ export const UserProvider = ({ children }) => {
     }, [address, loadCurrentUser]);
 
     const addUser = useCallback(async (userData) => {
+        console.log('Adding user to:', USERS_API_URL); // Debug log
         const result = await createUser(userData);
         if (result.success) {
             setUsers(prev => [result.data, ...prev]);
@@ -110,6 +115,7 @@ export const UserProvider = ({ children }) => {
     }, [createUser, fetchAllUsers]);
 
     const editUser = useCallback(async (id, userData) => {
+        console.log('Editing user at:', `${USERS_API_URL}/${id}`); // Debug log
         const result = await updateUserById(id, userData);
         if (result.success) {
             setUsers(prev => prev.map(user =>
@@ -127,6 +133,7 @@ export const UserProvider = ({ children }) => {
     }, [updateUserById, selectedUser, currentUser]);
 
     const removeUser = useCallback(async (id) => {
+        console.log('Deleting user at:', `${USERS_API_URL}/${id}`); // Debug log
         const result = await deleteUser(id);
         if (result.success) {
             setUsers(prev => prev.filter(user => user.id !== id));
@@ -171,6 +178,7 @@ export const UserProvider = ({ children }) => {
         const nextWatchlist = Array.from(new Set([...watchlist, tokenKey]));
         applyOptimisticWatchlist(nextWatchlist);
 
+        console.log('Updating watchlist for user:', `${USERS_API_URL}/${currentUser.id}`); // Debug log
         const result = await updateUserById(currentUser.id, { watchlist: nextWatchlist });
         if (result.success) {
             setCurrentUser(result.data);
@@ -191,6 +199,7 @@ export const UserProvider = ({ children }) => {
         const nextWatchlist = watchlist.filter((item) => item !== tokenKey);
         applyOptimisticWatchlist(nextWatchlist);
 
+        console.log('Updating watchlist for user:', `${USERS_API_URL}/${currentUser.id}`); // Debug log
         const result = await updateUserById(currentUser.id, { watchlist: nextWatchlist });
         if (result.success) {
             setCurrentUser(result.data);
