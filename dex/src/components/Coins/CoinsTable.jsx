@@ -18,7 +18,6 @@ function CoinsTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [expandedRows, setExpandedRows] = useState(new Set());
-  const [loading, setLoading] = useState(true);
 
   // Define the specific tokens we want to display in order
   const DESIRED_TOKENS = ['BTC', 'ETH', 'SOL', 'USDT', 'USDC', 'ADA', 'BNB'];
@@ -66,9 +65,7 @@ function CoinsTable() {
 
   // Build our tokens array from RapidAPI data
   const tokens = useMemo(() => {
-    setLoading(true);
-    
-    const result = DESIRED_TOKENS
+    return DESIRED_TOKENS
       .map((symbol) => {
         // Get data from RapidAPI
         const rapidCoin = rapidBySymbol[symbol];
@@ -110,17 +107,12 @@ function CoinsTable() {
             : (coinbasePrice !== null
               ? 'coinbase'
               : (rapidPrice !== null ? 'rapidapi' : 'unknown')),
-          // Add any additional data from RapidAPI that might be useful
           rank: rapidCoin?.rank,
           type: rapidCoin?.type || 'cryptocurrency',
           description: rapidCoin?.description,
-          // For USDT/USDC, we might want to note they're stablecoins
           isStablecoin: ['USDT', 'USDC'].includes(symbol)
         };
       });
-
-    setLoading(false);
-    return result;
   }, [rapidBySymbol, binanceBySymbol, globalPrices]);
 
   // Helper to get sortable value
@@ -175,12 +167,12 @@ function CoinsTable() {
     }));
   };
 
-  const formatPrice = (price) => {
+  const formatPrice = (price, symbol) => {
     const num = parseFloat(price);
-    if (!Number.isFinite(num)) return '0.00';
+    if (!Number.isFinite(num)) return '$0.00';
     
     // Special handling for stablecoins
-    if (['USDT', 'USDC'].includes(tokenBeingFormatted?.symbol) && Math.abs(num - 1) < 0.1) {
+    if (['USDT', 'USDC'].includes(symbol) && Math.abs(num - 1) < 0.1) {
       return '$1.00';
     }
     
@@ -190,9 +182,6 @@ function CoinsTable() {
       maximumFractionDigits: decimals
     });
   };
-
-  // We need to track which token is being formatted for stablecoin special case
-  const [tokenBeingFormatted, setTokenBeingFormatted] = useState(null);
 
   const formatMarketCap = (cap) => {
     const num = parseFloat(cap);
@@ -214,7 +203,7 @@ function CoinsTable() {
   };
 
   // Show loading state
-  if (loading || rapidLoading) {
+  if (rapidLoading) {
     return (
       <div className="token-table-container">
         <div className="loading-state">
@@ -265,11 +254,6 @@ function CoinsTable() {
               const tokenKey = token.uuid || token.symbol;
               const isWatchlisted = isInWatchlist(token);
               
-              // Set the token being formatted for the stablecoin special case
-              if (tokenBeingFormatted?.symbol !== token.symbol) {
-                setTokenBeingFormatted(token);
-              }
-              
               return (
                 <React.Fragment key={tokenKey}>
                   <tr 
@@ -308,7 +292,7 @@ function CoinsTable() {
                     <td className="price-cell">
                       {token.price && token.price !== '0' ? (
                         <div className="price-value">
-                          {formatPrice(token.price)}
+                          {formatPrice(token.price, token.symbol)}
                           <span style={{
                             fontSize: '10px',
                             marginLeft: '6px',
@@ -349,7 +333,6 @@ function CoinsTable() {
                         }}
                         type="button"
                         aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
-                        title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
                       >
                         {isWatchlisted ? <CheckOutlined /> : <PlusCircleOutlined />}
                       </button>
