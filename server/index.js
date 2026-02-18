@@ -7,6 +7,7 @@ const WebSocket = require('ws');
 const { Pool } = require('pg');
 const { rapidApiLimiter, cacheMiddleware } = require('./middleware/ratelimiter');
 const globalPriceStore = require('./utils/globalPriceStore');
+const fs = require('fs'); // Move this import up here
 
 const app = express();
 const server = http.createServer(app);
@@ -41,6 +42,7 @@ app.use(
     origin: [
       'https://libertyx.onrender.com',
       'https://libertyx-1.onrender.com',
+      'http://localhost:3000',
     ],
     credentials: true,
   })
@@ -113,16 +115,6 @@ app.get('/api/ws-status', (req, res) => {
             upstreamConnected: coinbaseUpstreamConnected,
             clients: coinbaseWsClients.size
         }
-    });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ 
-        success: false,
-        error: 'Something went wrong!',
-        message: err.message 
     });
 });
 
@@ -290,6 +282,41 @@ coinbaseWss.on('connection', (ws) => {
     });
 });
 
+// ===== Serve React Frontend =====
+// This MUST come after all API routes but before error handling
+const frontendBuildPath = path.join(__dirname, '../dex/build'); // Adjust this path as needed
+
+// Check if the frontend build directory exists
+if (fs.existsSync(frontendBuildPath)) {
+    console.log('Serving static files from:', frontendBuildPath);
+    
+    // Serve static files
+    app.use(express.static(frontendBuildPath));
+    
+    // For any route that's not an API or WebSocket route, serve the index.html
+    app.get('*', (req, res, next) => {
+        // Skip API and WebSocket routes
+        if (req.path.startsWith('/api/') || req.path.startsWith('/ws/')) {
+            return next();
+        }
+        res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    });
+} else {
+    console.log('Frontend build directory not found at:', frontendBuildPath);
+    console.log('Current directory:', __dirname);
+    console.log('Looking for build at:', path.join(__dirname, '../dex/build'));
+}
+
+// Error handling middleware (this should be LAST)
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ 
+        success: false,
+        error: 'Something went wrong!',
+        message: err.message 
+    });
+});
+
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log('Available endpoints:');
@@ -301,28 +328,5 @@ server.listen(PORT, () => {
     console.log(`  http://localhost:${PORT}/api/health`);
     console.log(`  ws://localhost:${PORT}/ws/binance`);
     console.log(`  ws://localhost:${PORT}/ws/coinbase`);
+    console.log(`Frontend static files being served from: ${frontendBuildPath}`);
 });
-
-//add static file serving
-
-const frontendBuildPath = path.join(__dirname, '../dex/build'); // Adjust this path as needed
-
-// Check if the frontend build directory exists
-const fs = require('fs');
-if (fs.existsSync(frontendBuildPath)) {
-    console.log('Serving static files from:', frontendBuildPath);
-    
-    // Serve static files
-    app.use(express.static(frontendBuildPath));
-    
-    // For any route that's not an API route, serve the index.html
-    app.get('*', (req, res, next) => {
-        // Skip API routes
-        if (req.path.startsWith('/api/') || req.path.startsWith('/ws/')) {
-            return next();
-        }
-        res.sendFile(path.join(frontendBuildPath, 'index.html'));
-    });
-} else {
-    console.log('Frontend build directory not found at:', frontendBuildPath);
-}
