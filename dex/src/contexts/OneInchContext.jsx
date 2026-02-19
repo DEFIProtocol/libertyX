@@ -4,7 +4,7 @@ const OneInchContext = createContext();
 
 export const useOneInch = () => useContext(OneInchContext);
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'httpss://libertyx.onrender.com/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://libertyx.onrender.com/api';
 
 export const OneInchProvider = ({ children, defaultChainId = '1' }) => {
   const [chainId, setChainId] = useState(defaultChainId);
