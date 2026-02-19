@@ -1,9 +1,10 @@
-import React from 'react';
+import { useState } from 'react';
 import { useBinanceWs } from '../contexts/BinanceWsContext';
 import { useChainContext } from '../contexts/ChainContext';
 import { useRapidApi } from '../contexts/RapidApiContext';
 import { useGlobalPrices } from '../contexts/GlobalPriceContext';
 import CoinsTable from '../components/Coins/CoinsTable';
+import CoinbasePayWidget from '../components/Coins/CoinbasePayWidget';
 import './Tokens.css';
 
 function Cryptocurrencies() {
@@ -11,6 +12,7 @@ function Cryptocurrencies() {
   const { selectedChain, getChainLabel } = useChainContext();
   const { loading: rapidLoading } = useRapidApi();
   const { loading: pricesLoading } = useGlobalPrices();
+  const [showPayWidget, setShowPayWidget] = useState(false);
 
   // Define the specific tokens we want to display
   const DESIRED_TOKENS = ['BTC', 'ETH', 'SOL', 'USDT', 'USDC', 'ADA', 'BNB'];
@@ -32,32 +34,31 @@ function Cryptocurrencies() {
   // Get loading state
   const isLoading = rapidLoading || pricesLoading;
   
+  
   return (
     <div className="tokens-page">
-      {/* Header */}
+      {/* Header with button */}
       <div className="tokens-header">
         <div>
           <h1>Cryptocurrencies</h1>
-          <p className="subtitle">
-            {isLoading
-              ? 'Loading...'
-              : `Current Chain: ${getChainLabel?.(selectedChain) || selectedChain} (${chainTokenCount} tokens)`}
-          </p>
-          {!isLoading && (
-            <p className="subtitle">Top 7 cryptocurrencies by market cap</p>
-          )}
         </div>
-        
         <div className="header-actions">
           <button 
-            className="refresh-button"
-            onClick={handleRefreshAll}
-            disabled={isLoading}
+            className="fund-button"
+            onClick={() => setShowPayWidget(!showPayWidget)}
           >
-            {isLoading ? '⏳ Loading...' : '↻ Refresh Prices'}
+            💰 Add Funds
           </button>
+          <button className="refresh-button">↻ Refresh</button>
         </div>
       </div>
+
+      {/* Show widget when button clicked */}
+      {showPayWidget && (
+        <div className="pay-widget-container">
+          <CoinbasePayWidget />
+        </div>
+      )}
       
       {/* Main Content */}
       <div className="tokens-content">

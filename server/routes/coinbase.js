@@ -58,7 +58,7 @@ const getCoinbasePriceRest = async (symbol) => {
         
         const response = await axios.get(`${COINBASE_BASE_URL}${path}`, {
             headers: {
-                'CB-ACCESS-KEY': COINBASE_API_KEY,
+                'CB-ACCESS-KEY': COINBASE_API,
                 'CB-ACCESS-SIGN': signature,
                 'CB-ACCESS-TIMESTAMP': timestamp,
                 'Content-Type': 'application/json'
@@ -95,7 +95,7 @@ const getCoinbasePricesBatch = async (symbols) => {
         
         const response = await axios.get(`${COINBASE_BASE_URL}${path}`, {
             headers: {
-                'CB-ACCESS-KEY': COINBASE_API_KEY,
+                'CB-ACCESS-KEY': COINBASE_API,
                 'CB-ACCESS-SIGN': signature,
                 'CB-ACCESS-TIMESTAMP': timestamp,
                 'Content-Type': 'application/json'
@@ -138,7 +138,7 @@ const getCoinbaseAllPricesSnapshot = async () => {
 
     const response = await axios.get(`${COINBASE_BASE_URL}${path}`, {
         headers: {
-            'CB-ACCESS-KEY': COINBASE_API_KEY,
+            'CB-ACCESS-KEY': COINBASE_API,
             'CB-ACCESS-SIGN': signature,
             'CB-ACCESS-TIMESTAMP': timestamp,
             'Content-Type': 'application/json'
@@ -339,7 +339,7 @@ router.get('/products', async (req, res) => {
         
         const response = await axios.get(`${COINBASE_BASE_URL}${path}`, {
             headers: {
-                'CB-ACCESS-KEY': COINBASE_API_KEY,
+                'CB-ACCESS-KEY': COINBASE_API,
                 'CB-ACCESS-SIGN': signature,
                 'CB-ACCESS-TIMESTAMP': timestamp,
                 'Content-Type': 'application/json'
@@ -422,7 +422,7 @@ router.get('/health', async (req, res) => {
         
         const response = await axios.get(`${COINBASE_BASE_URL}${path}`, {
             headers: {
-                'CB-ACCESS-KEY': COINBASE_API_KEY,
+                'CB-ACCESS-KEY': COINBASE_API,
                 'CB-ACCESS-SIGN': signature,
                 'CB-ACCESS-TIMESTAMP': timestamp,
                 'Content-Type': 'application/json'

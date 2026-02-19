@@ -104,7 +104,7 @@ app.get('/api/health', (req, res) => {
             database: 'connected',
             api: 'running',
             rapidapi: process.env.RAPID_API_KEY ? 'configured' : 'not configured',
-            coinbaseOnramp: process.env.COINBASE_API_KEY ? 'configured' : 'not configured'
+            coinbaseOnramp: process.env.COINBASE_API ? 'configured' : 'not configured'
         }
     });
 });

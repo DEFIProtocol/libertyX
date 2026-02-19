@@ -20,7 +20,7 @@ class ExchangeService {
                 options: { adjustForTimeDifference: true }
             },
             coinbase: {
-                apiKey: process.env.COINBASE_API_KEY,
+                apiKey: process.env.COINBASE_API,
                 secret: process.env.COINBASE_API_SECRET,
                 enableRateLimit: true
             },
