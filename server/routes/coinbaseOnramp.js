@@ -117,9 +117,6 @@ router.get('/assets', async (req, res) => {
  * POST /api/coinbase-onramp/create-pay-session
  */
 router.post('/create-pay-session', async (req, res) => {
-  // Set content type header explicitly
-  res.setHeader('Content-Type', 'application/json');
-  
   try {
     console.log('Creating pay session with data:', req.body);
     
@@ -148,7 +145,8 @@ router.post('/create-pay-session', async (req, res) => {
     // Generate a unique session ID
     const sessionId = crypto.randomBytes(16).toString('hex');
 
-    // Create session object
+    // This is where you'd make actual Coinbase Pay API call
+    // For now, we'll create a session object
     const paySession = {
       sessionId,
       partnerId: process.env.COINBASE_PARTNER_ID || 'test-partner',
@@ -170,8 +168,7 @@ router.post('/create-pay-session', async (req, res) => {
 
     console.log('Session created successfully:', sessionId);
 
-    // Return proper JSON response
-    return res.status(200).json({
+    res.json({
       success: true,
       session: paySession,
       paymentUrl
@@ -179,13 +176,14 @@ router.post('/create-pay-session', async (req, res) => {
 
   } catch (error) {
     console.error('Error creating Pay session:', error);
-    return res.status(500).json({ 
+    res.status(500).json({ 
       success: false, 
       error: 'Failed to create payment session',
       message: error.message 
     });
   }
 });
+
 /**
  * Get exchange rate from Coinbase
  * GET /api/coinbase-onramp/rate/:asset
