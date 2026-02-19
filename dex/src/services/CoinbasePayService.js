@@ -21,7 +21,7 @@ class CoinbasePayService {
   // Create Coinbase Pay session (UPDATED to match backend)
   async createPaySession(sessionData) {
     try {
-      const response = await fetch(`${API_BASE_URL}coinbase-onramp/create-pay-session`, {
+      const response = await fetch(`${API_BASE_URL}/coinbase-onramp/create-pay-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -144,6 +144,7 @@ function CoinbasePayWidget() {
 
   return (
     <div className="cb-pay-widget">
+      
       <div className="cb-header">
         <h2>Add Funds with Coinbase</h2>
         <p className="cb-subtitle">Zero fees on USDC purchases</p>
