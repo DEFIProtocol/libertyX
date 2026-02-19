@@ -7,7 +7,7 @@ const WebSocket = require('ws');
 const { Pool } = require('pg');
 const { rapidApiLimiter, cacheMiddleware } = require('./middleware/ratelimiter');
 const globalPriceStore = require('./utils/globalPriceStore');
-const fs = require('fs'); // Move this import up here
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -60,6 +60,8 @@ const oneInchRoutes = require('./routes/oneinch');
 const fusionRoutes = require('./routes/fusion');
 const globalPricesRoutes = require('./routes/globalPrices');
 const oracleRoutes = require('./routes/oracle');
+// Import the new Coinbase Onramp route
+const coinbaseOnrampRoutes = require('./routes/coinbaseOnramp');
 
 // API Routes
 app.use('/api/tokens', tokensRoutes);
@@ -72,6 +74,8 @@ app.use('/api/oneinch', oneInchRoutes);
 app.use('/api/fusion', fusionRoutes);
 app.use('/api/global-prices', globalPricesRoutes(pool));
 app.use('/api/oracle', oracleRoutes);
+// Add the new Coinbase Onramp route
+app.use('/api/coinbase-onramp', coinbaseOnrampRoutes);
 
 // Add RapidAPI routes with rate limiting and caching
 const rapidapiRoutes = require('./routes/rapidapi');
@@ -99,7 +103,8 @@ app.get('/api/health', (req, res) => {
         services: {
             database: 'connected',
             api: 'running',
-            rapidapi: process.env.RAPID_API_KEY ? 'configured' : 'not configured'
+            rapidapi: process.env.RAPID_API_KEY ? 'configured' : 'not configured',
+            coinbaseOnramp: process.env.COINBASE_API_KEY ? 'configured' : 'not configured'
         }
     });
 });
@@ -284,7 +289,7 @@ coinbaseWss.on('connection', (ws) => {
 
 // ===== Serve React Frontend =====
 // This MUST come after all API routes but before error handling
-const frontendBuildPath = path.join(__dirname, '../dex/build'); // Adjust this path as needed
+const frontendBuildPath = path.join(__dirname, '../dex/build');
 
 // Check if the frontend build directory exists
 if (fs.existsSync(frontendBuildPath)) {
@@ -326,6 +331,8 @@ server.listen(PORT, () => {
     console.log(`  http://localhost:${PORT}/api/rapidapi/coin/:coinId/history`);
     console.log(`  http://localhost:${PORT}/api/rapidapi/stats`);
     console.log(`  http://localhost:${PORT}/api/health`);
+    console.log(`  http://localhost:${PORT}/api/coinbase-onramp/assets`);
+    console.log(`  http://localhost:${PORT}/api/coinbase-onramp/session`);
     console.log(`  ws://localhost:${PORT}/ws/binance`);
     console.log(`  ws://localhost:${PORT}/ws/coinbase`);
     console.log(`Frontend static files being served from: ${frontendBuildPath}`);
