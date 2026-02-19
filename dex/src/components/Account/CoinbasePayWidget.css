@@ -1,0 +1,399 @@
+.cb-pay-widget {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 600px;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.cb-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.cb-header h2 {
+  margin: 0 0 8px 0;
+  color: var(--text);
+  font-size: 28px;
+}
+
+.cb-subtitle {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 14px;
+}
+
+.cb-error {
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  color: #ff4444;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.cb-section {
+  margin-bottom: 24px;
+}
+
+.cb-label {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+/* Asset Grid */
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.asset-option {
+  background: var(--surface-2);
+  border: 2px solid transparent;
+  border-radius: 16px;
+  padding: 16px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.asset-option:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.asset-option.selected {
+  border-color: #0052ff;
+  background: rgba(0, 82, 255, 0.05);
+}
+
+.asset-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.asset-symbol {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.asset-name {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.fee-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #27ae60;
+  color: white;
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* Amount Input */
+.amount-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.amount-input-wrapper:focus-within {
+  border-color: #0052ff;
+}
+
+.currency-symbol {
+  padding: 0 16px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.amount-input {
+  flex: 1;
+  padding: 16px;
+  font-size: 20px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  outline: none;
+}
+
+/* Preset Amounts */
+.preset-amounts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  padding: 8px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-btn:hover {
+  background: var(--surface);
+  transform: translateY(-1px);
+}
+
+.preset-btn.active {
+  background: #0052ff;
+  border-color: #0052ff;
+  color: white;
+}
+
+/* Estimate Section */
+.estimate {
+  background: var(--surface-2);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.estimate-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.estimate-value {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.estimate-value.highlight {
+  color: #0052ff;
+  font-size: 16px;
+}
+
+.fee-row {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 16px;
+}
+
+/* Wallet Warning */
+.wallet-warning {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+}
+
+/* Actions */
+.cb-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.cb-button {
+  flex: 1;
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.cb-button.primary {
+  background: #0052ff;
+  color: white;
+}
+
+.cb-button.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 82, 255, 0.3);
+}
+
+.cb-button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cb-button.secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.cb-button.secondary:hover {
+  background: var(--surface);
+  transform: translateY(-2px);
+}
+
+/* Processing State */
+.cb-pay-processing {
+  text-align: center;
+  padding: 40px;
+}
+
+.processing-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--border);
+  border-top: 4px solid #0052ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 24px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Security Notice */
+.security-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .cb-pay-widget {
+    padding: 20px;
+  }
+  
+  .asset-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .cb-actions {
+    flex-direction: column;
+  }
+}
+/* Chain Context Banner */
+.chain-context-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  color: white;
+}
+
+.chain-info {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.chain-icon {
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.2);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chain-details {
+  flex: 1;
+}
+
+.chain-details strong {
+  font-size: 16px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.chain-message {
+  font-size: 13px;
+  opacity: 0.9;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.wallet-address {
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 8px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.chain-switch-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 13px;
+}
+
+.switch-icon {
+  font-size: 16px;
+}
+
+/* No Assets Warning */
+.no-assets-warning {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Processing State Chain Notice */
+.chain-notice {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.chain-notice strong {
+  color: var(--accent);
+}

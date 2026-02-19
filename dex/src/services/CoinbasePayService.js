@@ -4,7 +4,20 @@ class CoinbasePayService {
   // Get supported assets
   async getSupportedAssets() {
     try {
-      const response = await fetch(`${API_BASE_URL}/coinbase-onramp/assets`);
+      const response = await fetch(`${API_BASE_URL}/api/coinbase-onramp/assets`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      // Check if response is OK
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Server response:', text.substring(0, 200));
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (!data.success) {
@@ -18,18 +31,33 @@ class CoinbasePayService {
     }
   }
 
-  // Create Coinbase Pay session (UPDATED to match backend)
+  // Create Coinbase Pay session
   async createPaySession(sessionData) {
     try {
-      const response = await fetch(`${API_BASE_URL}coinbase-onramp/create-pay-session`, {
+      console.log('Sending session data to server:', sessionData);
+      
+      const response = await fetch(`${API_BASE_URL}/api/coinbase-onramp/create-pay-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(sessionData),
       });
 
+      // Log response status
+      console.log('Response status:', response.status);
+      
+      // Check if response is OK
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Server error response:', text.substring(0, 500));
+        throw new Error(`Server error: ${response.status} - ${text.substring(0, 100)}`);
+      }
+
       const data = await response.json();
+      console.log('Session created successfully:', data);
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to create payment session');
@@ -42,36 +70,30 @@ class CoinbasePayService {
     }
   }
 
-  // Keep the old method name for backward compatibility if needed
+  // Keep the alias for backward compatibility
   async createSession(sessionData) {
     return this.createPaySession(sessionData);
-  }
-
-  // Get session status
-  async getSessionStatus(sessionId) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/coinbase-onramp/session/${sessionId}`);
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch session');
-      }
-
-      return data.session;
-    } catch (error) {
-      console.error('Error fetching session:', error);
-      throw error;
-    }
   }
 
   // Get exchange rate
   async getExchangeRate(asset, amount) {
     try {
       const url = amount 
-        ? `${API_BASE_URL}/coinbase-onramp/rate/${asset}?amount=${amount}`
-        : `${API_BASE_URL}/coinbase-onramp/rate/${asset}`;
+        ? `${API_BASE_URL}/api/coinbase-onramp/rate/${asset}?amount=${amount}`
+        : `${API_BASE_URL}/api/coinbase-onramp/rate/${asset}`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Server error: ${response.status}`);
+      }
+
       const data = await response.json();
 
       if (!data.success) {
@@ -85,16 +107,51 @@ class CoinbasePayService {
     }
   }
 
+  // Get session status
+  async getSessionStatus(sessionId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/coinbase-onramp/session/${sessionId}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch session');
+      }
+
+      return data.session;
+    } catch (error) {
+      console.error('Error fetching session:', error);
+      throw error;
+    }
+  }
+
   // Validate wallet address
   async validateAddress(address, chain) {
     try {
-      const response = await fetch(`${API_BASE_URL}/coinbase-onramp/validate-address`, {
+      const response = await fetch(`${API_BASE_URL}/api/coinbase-onramp/validate-address`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ address, chain }),
       });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Server error: ${response.status}`);
+      }
 
       const data = await response.json();
 

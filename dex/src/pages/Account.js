@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Card } from "antd";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, PlusCircleOutlined } from "@ant-design/icons";
 import millify from "millify";
 import "./Account.css";
 import { useRapidApi } from '../contexts/RapidApiContext';
@@ -9,15 +9,14 @@ import { useGlobalPrices } from '../contexts/GlobalPriceContext';
 import { useTokens } from '../contexts/TokenContext';
 import { useChainContext } from '../contexts/ChainContext';
 import { useUserContext } from '../contexts/UserContext';
-
-
-
+import CoinbasePayWidget from '../components/Account/CoinbasePayWidget'; // Add this import
 
 function Account(props) {
   const {address} = props
   const [balance, setBalance] = useState();
   const [nativeBalance, setNativeBalance] = useState(null);
   const [totalHoldingsValue, setTotalHoldingsValue] = useState(''); 
+  const [showAddFunds, setShowAddFunds] = useState(false); // Add this state
   const navigate = useNavigate();
   const { coins: rapidCoins } = useRapidApi();
   const { prices: globalPrices } = useGlobalPrices();
@@ -157,7 +156,7 @@ useEffect(() => {
 
   const balanceValue = parseFloat(nativeBalance);
   // const price = cryptoDetails?.price ? parseFloat(cryptoDetails.price) : null;
-  const price = 500; // Placeholder price, replace with actual price from context or API
+  const price = 2000; // Placeholder price, replace with actual price from context or API
   const label = chainLabel || 'Chain';
 
   if (Number.isNaN(balanceValue)) {
@@ -289,8 +288,44 @@ return (
         <UserOutlined style={{ fontSize: '24px' }} />
       </button>
     </div>
-    <h1 className="heading">Total Holdings: ${totalHoldingsValue}</h1>
-    <h1 className="heading">Buying Power: {balance}</h1>
+
+    {/* Add Funds Modal */}
+{showAddFunds && (
+  <div className="modal-overlay" onClick={() => setShowAddFunds(false)}>
+    <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div className="modal-header">
+        <h2>Add Funds with Coinbase</h2>
+        <button className="modal-close-btn" onClick={() => setShowAddFunds(false)}>×</button>
+      </div>
+      <div className="modal-body">
+        <CoinbasePayWidget />
+      </div>
+    </div>
+  </div>
+)}
+
+    {/* Stats Section with Add Funds Button */}
+    <div className="account-stats-grid">
+      <div className="stat-card">
+        <h3 className="stat-label">Total Holdings</h3>
+        <p className="stat-value">${totalHoldingsValue}</p>
+      </div>
+      
+      <div className="stat-card">
+        <div className="stat-header">
+          <h3 className="stat-label">Buying Power</h3>
+          <button 
+            className="add-funds-btn"
+            onClick={() => setShowAddFunds(true)}
+          >
+            <PlusCircleOutlined /> Add Funds
+          </button>
+        </div>
+        <p className="stat-value">{balance}</p>
+        <p className="stat-note">on {chainLabel}</p>
+      </div>
+    </div>
+
     <h1 className="heading">Holdings</h1>
     <div className="column-title">
       <span className="column-title-heading">Tokens</span>
@@ -384,4 +419,4 @@ return (
 );
 }
 
-export default Account
+export default Account;
