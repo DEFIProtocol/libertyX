@@ -153,7 +153,7 @@ function App() {
         <Route path="/account/settings" element={<AccoutSettings />} />
         <Route path="/swap" element={<Swap isConnect={isConnected} address={address}/>} />
         <Route exact path="/:name?/:uuid?" element={<TokenDetails address={address} />} />
-        <Route exact path="coins/:name?/:uuid?" element={<CryptoDetails address={address} />} />
+        <Route exact path="coins/:uuid?" element={<CryptoDetails address={address} />} />
       </Routes>
     </div>
     <Footer className="mainWindow"/>

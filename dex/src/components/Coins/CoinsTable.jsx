@@ -382,10 +382,10 @@ function CoinsTable() {
                                 className="action-btn primary"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/token/${token.uuid}`);
+                                  navigate(`/coins/${token.uuid}`);
                                 }}
                               >
-                                View Token Details
+                                View Coin Details
                               </button>
                             )}
                           </div>
